@@ -16,10 +16,10 @@ from __future__ import absolute_import
 
 import datetime
 import httplib
-import unittest2
-import mock
+import unittest
 from operator import attrgetter
 from expects import be, be_none, be_true, be_false, equal, expect, raise_error
+from unittest import mock
 
 from apitools.base.py import encoding
 
@@ -28,7 +28,7 @@ from endpoints_management.control import (quota_request, metric_value,
                                           sc_messages)
 
 
-class TestSign(unittest2.TestCase):
+class TestSign(unittest.TestCase):
 
     def setUp(self):
         op = sc_messages.QuotaOperation(
@@ -91,7 +91,7 @@ class TestSign(unittest2.TestCase):
         expect(with_mvs).not_to(equal(without_mvs))
 
 
-class TestAggregatorQuota(unittest2.TestCase):
+class TestAggregatorQuota(unittest.TestCase):
     SERVICE_NAME = u'service.quota'
     FAKE_OPERATION_ID = u'service.general.quota'
 
@@ -133,7 +133,7 @@ class TestAggregatorQuota(unittest2.TestCase):
         expect(actual).to(equal(fake_response))
 
 
-class TestAggregatorThatCannotCache(unittest2.TestCase):
+class TestAggregatorThatCannotCache(unittest.TestCase):
     SERVICE_NAME = u'service.no_cache'
     FAKE_OPERATION_ID = u'service.no_cache.op_id'
 
@@ -162,7 +162,7 @@ class TestAggregatorThatCannotCache(unittest2.TestCase):
 
 
 
-class TestCachingAggregator(unittest2.TestCase):
+class TestCachingAggregator(unittest.TestCase):
     SERVICE_NAME = u'service.with_cache'
     FAKE_OPERATION_ID = u'service.with_cache.op_id'
 
@@ -298,7 +298,7 @@ class TestCachingAggregator(unittest2.TestCase):
             assert signature not in cache
 
 
-class TestCacheItem(unittest2.TestCase):
+class TestCacheItem(unittest.TestCase):
     SERVICE_NAME = u'service.quota'
     FAKE_OPERATION_ID = u'service.general.quota'
 
@@ -445,7 +445,7 @@ _INCOMPLETE_INFO_TESTS = [
 KEYGETTER = attrgetter(u'key')
 
 
-class TestInfo(unittest2.TestCase):
+class TestInfo(unittest.TestCase):
     def test_should_construct_with_no_args(self):
         expect(quota_request.Info()).not_to(be_none)
 
@@ -466,7 +466,7 @@ class TestInfo(unittest2.TestCase):
             expect(testf).to(raise_error(ValueError))
 
 
-class TestConvertResponse(unittest2.TestCase):
+class TestConvertResponse(unittest.TestCase):
     PROJECT_ID = u'test_convert_response'
 
     def test_should_be_ok_with_no_errors(self):

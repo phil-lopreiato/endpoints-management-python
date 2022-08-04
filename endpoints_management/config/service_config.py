@@ -22,8 +22,8 @@ import json
 import os
 import urllib3
 
-from apitools.base.py import encoding
-from ..gen import servicemanagement_v1_messages as messages
+#from apitools.base.py import encoding
+from google.cloud import servicemanagement_v1
 from oauth2client import client
 from urllib3.contrib import appengine
 
@@ -73,7 +73,7 @@ def fetch_service_config(service_name=None, service_version=None):
                   service_name, service_version)
     response = _make_service_config_request(service_name, service_version)
     _logger.debug(u'obtained service json from the management api:\n%s', response.data)
-    service = encoding.JsonToMessage(messages.Service, response.data)
+    service = encoding.JsonToMessage(servicemanagement_v1.Service, response.data)
     _validate_service_config(service, service_name, service_version)
     return service
 
@@ -135,7 +135,7 @@ def _get_service_version(env_variable_name, service_name):
     response = _make_service_config_request(service_name)
     _logger.debug(u'obtained service config list from api: \n%s', response.data)
 
-    services = encoding.JsonToMessage(messages.ListServiceConfigsResponse,
+    services = encoding.JsonToMessage(servicemanagement_v1.ListServiceConfigsResponse,
                                       response.data)
 
     try:

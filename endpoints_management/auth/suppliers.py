@@ -16,9 +16,10 @@
 
 from __future__ import absolute_import
 
+from builtins import object
 import datetime
 from dogpile import cache
-from jwkest import jwk
+#from jwkest import jwk
 import requests
 import ssl
 
@@ -133,7 +134,7 @@ class JwksSupplier(object):  # pylint: disable=too-few-public-methods
 
 def _extract_x509_certificates(x509_certificates):
     keys = []
-    for kid, certificate in x509_certificates.iteritems():
+    for kid, certificate in list(x509_certificates.items()):
         try:
             if certificate.startswith(jwk.PREFIX):
                 # The certificate is PEM-encoded

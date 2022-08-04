@@ -27,5 +27,5 @@ def add_dict_to_hash(a_hash, a_dict):
     """
     if a_dict is None:
         return
-    for k, v in a_dict.items():
+    for k, v in list(a_dict.items()):
         a_hash.update(b'\x00' + k.encode('utf-8') + b'\x00' + v.encode('utf-8'))

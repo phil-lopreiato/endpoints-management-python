@@ -18,13 +18,14 @@ import datetime
 import json
 import os
 import tempfile
-import unittest2
+import unittest
 import urllib
 
-from apitools.base.py import encoding
 from expects import be_false, be_none, be_true, expect, equal, raise_error
+from google.api import service_pb2
+from google.protobuf.json_format import Parse
 
-from endpoints_management.control import service, sm_messages
+from endpoints_management.control import service
 
 
 _LOGGING_DESTINATIONS_INPUT = u"""
@@ -74,7 +75,7 @@ _LOGGING_DESTINATIONS_INPUT = u"""
 class _JsonServiceBase(object):
 
     def setUp(self):
-        self._subject = encoding.JsonToMessage(sm_messages.Service, self._INPUT)
+        self._subject = Parse(self._INPUT, service_bp2.Service())
 
     def _extract(self):
         return service.extract_report_spec(
@@ -87,7 +88,7 @@ class _JsonServiceBase(object):
         return service.MethodRegistry(self._subject)
 
 
-class TestLoggingDestinations(_JsonServiceBase, unittest2.TestCase):
+class TestLoggingDestinations(_JsonServiceBase, unittest.TestCase):
     _INPUT = _LOGGING_DESTINATIONS_INPUT
     _WANTED_LABELS = [
         u'supported/endpoints-log-label',
@@ -172,7 +173,7 @@ _METRIC_DESTINATIONS_INPUTS = u"""
 
 """
 
-class TestMetricDestinations(_JsonServiceBase, unittest2.TestCase):
+class TestMetricDestinations(_JsonServiceBase, unittest.TestCase):
     _INPUT = _METRIC_DESTINATIONS_INPUTS
     _WANTED_METRICS = [
         u'supported/endpoints-metric']
@@ -267,7 +268,7 @@ _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
 
 """
 
-class TestCombinedExtraction(_JsonServiceBase, unittest2.TestCase):
+class TestCombinedExtraction(_JsonServiceBase, unittest.TestCase):
     _INPUT = _COMBINED_LOG_METRIC_LABEL_INPUTS
     _WANTED_METRICS = [
         u"supported/endpoints-metric",
@@ -307,7 +308,7 @@ _NO_NAME_SERVICE_CONFIG_TEST = """
 }
 """
 
-class TestBadServiceConfig(_JsonServiceBase, unittest2.TestCase):
+class TestBadServiceConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _NO_NAME_SERVICE_CONFIG_TEST
 
     def test_should_fail_if_service_is_bad(self):
@@ -326,7 +327,7 @@ _EMPTY_SERVICE_CONFIG_TEST = """
 }
 """
 
-class TestEmptyServiceConfig(_JsonServiceBase, unittest2.TestCase):
+class TestEmptyServiceConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _EMPTY_SERVICE_CONFIG_TEST
 
     def test_should_obtain_a_registry(self):
@@ -359,7 +360,7 @@ _BAD_HTTP_RULE_CONFIG_TEST = """
 }
 """
 
-class TestBadHttpRuleServiceConfig(_JsonServiceBase, unittest2.TestCase):
+class TestBadHttpRuleServiceConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _BAD_HTTP_RULE_CONFIG_TEST
 
     def test_lookup_should_return_none_for_unknown_uri(self):
@@ -406,7 +407,7 @@ _USAGE_CONFIG_TEST = """
 }
 """
 
-class TestMethodRegistryUsageConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistryUsageConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _USAGE_CONFIG_TEST
 
     def test_should_detect_with_unregistered_calls_are_allowed(self):
@@ -475,7 +476,7 @@ _SYSTEM_PARAMETER_CONFIG_TEST = u"""
 """
 
 
-class TestMethodRegistrySystemParameterConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistrySystemParameterConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _SYSTEM_PARAMETER_CONFIG_TEST
 
     def test_should_detect_registered_system_parameters(self):
@@ -537,7 +538,7 @@ _BOOKSTORE_CONFIG_TEST = b"""
 }
 """
 
-class TestMethodRegistryBookstoreConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistryBookstoreConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _BOOKSTORE_CONFIG_TEST
 
     def test_configures_list_shelves_ok(self):
@@ -583,7 +584,7 @@ _OPTIONS_SELECTOR_CONFIG_TEST = u"""
 }
 """
 
-class TestOptionsSelectorConfig(_JsonServiceBase, unittest2.TestCase):
+class TestOptionsSelectorConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _OPTIONS_SELECTOR_CONFIG_TEST
 
     def test_should_options_to_be_updated(self):
@@ -593,7 +594,7 @@ class TestOptionsSelectorConfig(_JsonServiceBase, unittest2.TestCase):
         expect(info.selector).to(equal(u'options-selector.OPTIONS.2'))
 
 
-class TestSimpleLoader(unittest2.TestCase):
+class TestSimpleLoader(unittest.TestCase):
 
     def test_should_load_service_ok(self):
         loaded = service.Loaders.SIMPLE.load()
@@ -604,7 +605,7 @@ class TestSimpleLoader(unittest2.TestCase):
         expect(info).not_to(be_none)
 
 
-class TestEnvironmentLoader(unittest2.TestCase):
+class TestEnvironmentLoader(unittest.TestCase):
 
     def setUp(self):
         _config_fd = tempfile.NamedTemporaryFile(delete=False)
@@ -675,7 +676,7 @@ _AUTHENTICATION_CONFIG_TEST = u"""
 }
 """
 
-class TestAuthenticationConfig(_JsonServiceBase, unittest2.TestCase):
+class TestAuthenticationConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _AUTHENTICATION_CONFIG_TEST
 
     def test_lookup_method_with_authentication(self):
@@ -756,7 +757,7 @@ _QUOTA_CONFIG_TEST = u"""
 }
 """
 
-class TestQuotaConfig(_JsonServiceBase, unittest2.TestCase):
+class TestQuotaConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _QUOTA_CONFIG_TEST
 
     def test_quota_info(self):
@@ -791,7 +792,7 @@ _CUSTOM_METHOD_CONFIG_TEST = b"""
 }
 """
 
-class TestMethodRegistryCustomMethodConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistryCustomMethodConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _CUSTOM_METHOD_CONFIG_TEST
     def test_configures_custom_method(self):
         registry = self._get_registry()

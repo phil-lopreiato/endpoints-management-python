@@ -39,6 +39,7 @@ Example:
 """
 from __future__ import absolute_import
 
+from builtins import object
 from apitools.base.py import exceptions
 from datetime import datetime, timedelta
 from enum import Enum
@@ -48,7 +49,9 @@ import os
 import threading
 import time
 
-from . import api_client, check_request, quota_request, report_request, sc_messages
+from google.cloud import servicecontrol 
+
+from . import check_request, quota_request, report_request
 from .. import USER_AGENT
 from .caches import CheckOptions, QuotaOptions, ReportOptions, to_cache_timer
 from .vendor.py3 import sched
@@ -137,10 +140,7 @@ def _create_http_transport():
     from endpoints_management import _logger as management_logger
     do_logging = management_logger.isEnabledFor(logging.DEBUG)
 
-    return api_client.ServicecontrolV1(
-        additional_http_headers=additional_http_headers,
-        log_request=do_logging,
-        log_response=do_logging)
+    return servicecontrol.ServiceControllerClient()
 
 
 def _thread_local_http_transport_func():
@@ -333,7 +333,7 @@ class Client(object):
             _logger.error(u'direct send of quota request failed %s',
                           allocate_quota_req, exc_info=True)
             # fail open
-            dummy_resp = sc_messages.AllocateQuotaResponse()
+            dummy_resp = servicecontrol.AllocateQuotaResponse()
             self._quota_aggregator.add_response(allocate_quota_req, dummy_resp)
             return dummy_resp
 

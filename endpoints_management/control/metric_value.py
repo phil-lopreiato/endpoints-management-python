@@ -25,10 +25,10 @@ from __future__ import absolute_import
 import hashlib
 import logging
 
-from apitools.base.py import encoding
+from google.cloud.servicecontrol import MetricValue
+from google.protobuf.json_format import ParseDict, MessageToDict
 
 from . import distribution, money, signing, timestamp, MetricKind
-from ..gen.servicecontrol_v1_messages import MetricValue
 
 
 _logger = logging.getLogger(__name__)
@@ -51,8 +51,7 @@ def create(labels=None, **kw):
 
     """
     if labels is not None:
-        kw[u'labels'] = encoding.PyValueToMessage(MetricValue.LabelsValue,
-                                                  labels)
+        kw[u'labels'] = labels
     return MetricValue(**kw)
 
 
@@ -91,7 +90,7 @@ def update_hash(a_hash, mv):
 
     """
     if mv.labels:
-        signing.add_dict_to_hash(a_hash, encoding.MessageToPyValue(mv.labels))
+        signing.add_dict_to_hash(a_hash, MessageToDict(mv.labels))
     money_value = mv.get_assigned_value(u'moneyValue')
     if money_value is not None:
         a_hash.update(b'\x00')

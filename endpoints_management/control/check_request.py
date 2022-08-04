@@ -27,90 +27,89 @@ and caching their responses.
 
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import collections
 import hashlib
-import httplib
+import http.client
 import logging
 from datetime import datetime
 
 from apitools.base.py import encoding
+import google.cloud.servicecontrol as sc_messages
 
-from . import (caches, label_descriptor, metric_value, operation, sc_messages,
+from . import (caches, label_descriptor, metric_value, operation,
                signing)
 from .. import USER_AGENT, SERVICE_AGENT
 
 _logger = logging.getLogger(__name__)
 
 # alias for brevity
-_CheckErrors = sc_messages.CheckError.CodeValueValuesEnum
-_IS_OK = (httplib.OK, u'', True)
+_CheckErrors = sc_messages.CheckError.Code
+_IS_OK = (http.client.OK, u'', True)
 _IS_UNKNOWN = (
-    httplib.INTERNAL_SERVER_ERROR,
+    http.client.INTERNAL_SERVER_ERROR,
     u'Request blocked due to unsupported block reason {detail}',
     False)
 _CHECK_ERROR_CONVERSION = {
     _CheckErrors.NOT_FOUND: (
-        httplib.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         u'Client project not found. Please pass a valid project',
         False,
     ),
     _CheckErrors.API_KEY_NOT_FOUND: (
-        httplib.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         u'API key not found. Please pass a valid API key',
         True,
     ),
     _CheckErrors.API_KEY_EXPIRED: (
-        httplib.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         u'API key expired. Please renew the API key',
         True,
     ),
     _CheckErrors.API_KEY_INVALID: (
-        httplib.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         u'API not valid. Please pass a valid API key',
         True,
     ),
     _CheckErrors.SERVICE_NOT_ACTIVATED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'{detail} Please enable the project for {project_id}',
         False,
     ),
     _CheckErrors.PERMISSION_DENIED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'Permission denied: {detail}',
         False,
     ),
     _CheckErrors.IP_ADDRESS_BLOCKED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'{detail}',
         False,
     ),
     _CheckErrors.REFERER_BLOCKED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'{detail}',
         False,
     ),
     _CheckErrors.CLIENT_APP_BLOCKED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'{detail}',
         False,
     ),
     _CheckErrors.PROJECT_DELETED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'Project {project_id} has been deleted',
         False,
     ),
     _CheckErrors.PROJECT_INVALID: (
-        httplib.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         u'Client Project is not valid.  Please pass a valid project',
         False,
     ),
-    _CheckErrors.VISIBILITY_DENIED: (
-        httplib.FORBIDDEN,
-        u'Project {project_id} has no visibility access to the service',
-        False,
-    ),
     _CheckErrors.BILLING_DISABLED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'Project {project_id} has billing disabled. Please enable it',
         False,
     ),
@@ -119,7 +118,6 @@ _CHECK_ERROR_CONVERSION = {
     _CheckErrors.NAMESPACE_LOOKUP_UNAVAILABLE: _IS_OK,
     _CheckErrors.SERVICE_STATUS_UNAVAILABLE: _IS_OK,
     _CheckErrors.BILLING_STATUS_UNAVAILABLE: _IS_OK,
-    _CheckErrors.QUOTA_CHECK_UNAVAILABLE: _IS_OK,
 }
 
 

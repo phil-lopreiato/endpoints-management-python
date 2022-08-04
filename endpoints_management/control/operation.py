@@ -25,13 +25,15 @@ The :class:`.Aggregator` support this.
 
 from __future__ import absolute_import
 
+from builtins import object
 import collections
 import logging
 from datetime import datetime
 
 from apitools.base.py import encoding
+import google.cloud.servicecontrol as sc_messages
 
-from . import metric_value, sc_messages, timestamp, MetricKind
+from . import metric_value, timestamp, MetricKind
 
 _logger = logging.getLogger(__name__)
 
@@ -171,7 +173,7 @@ class Aggregator(object):
             mvs = self._metric_values_by_name_then_sign[name]
             result.metricValueSets.append(
                 sc_messages.MetricValueSet(
-                    metricName=name, metricValues=mvs.values()))
+                    metricName=name, metricValues=list(mvs.values())))
         return result
 
     def add(self, other_op):

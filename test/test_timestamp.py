@@ -16,13 +16,13 @@ from __future__ import absolute_import
 
 import datetime
 
-import unittest2
+import unittest
 from expects import be_below_or_equal, expect, equal, raise_error
 
 from endpoints_management.control import timestamp
 
 
-class TestToRfc3339(unittest2.TestCase):
+class TestToRfc3339(unittest.TestCase):
     A_LONG_TIME_AGO = datetime.datetime(1971, 12, 31, 21, 0, 20, 21000)
     TESTS = [
         (A_LONG_TIME_AGO, u'1971-12-31T21:00:20.021Z'),
@@ -39,7 +39,7 @@ class TestToRfc3339(unittest2.TestCase):
         expect(testf).to(raise_error(ValueError))
 
 
-class TestFromRfc3339(unittest2.TestCase):
+class TestFromRfc3339(unittest.TestCase):
     TOLERANCE = 10000  # 1e-5 * 1e9
     TESTS = [
         # Simple
@@ -81,7 +81,7 @@ class TestFromRfc3339(unittest2.TestCase):
             expect(epsilon).to(be_below_or_equal(self.TOLERANCE))
 
 
-class TestCompare(unittest2.TestCase):
+class TestCompare(unittest.TestCase):
     TESTS = [
         # Strings
         (u'1971-10-31T21:00:20.021Z', u'1971-11-30T21:00:20.021Z', -1),

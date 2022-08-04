@@ -15,14 +15,15 @@
 import copy
 import httmock
 import json
-import mock
 import os
 import sys
 import unittest
+from unittest import mock
 
-from apitools.base.py import encoding
+from google.api import service_pb2
+from google.protobuf.json_format import ParseDict
+
 from endpoints_management.config import service_config
-from endpoints_management.control import sm_messages
 from oauth2client import client
 
 class ServiceConfigFetchTest(unittest.TestCase):
@@ -78,8 +79,7 @@ class ServiceConfigFetchTest(unittest.TestCase):
         mock_http_client.request.side_effect = [list_mock_response, config_mock_response]
         ServiceConfigFetchTest._get_http_client.return_value = mock_http_client
 
-        service = encoding.JsonToMessage(sm_messages.Service,
-                                         json.dumps(self._SERVICE_CONFIG_JSON))
+        service = ParseDict(self._SERVICE_CONFIG_JSON, service_pb2.Service())
         self.assertEqual(service, service_config.fetch_service_config())
 
         self.assertEqual(2, mock_http_client.request.call_count)
@@ -107,8 +107,7 @@ class ServiceConfigFetchTest(unittest.TestCase):
         mock_http_client.request.return_value = mock_response
         ServiceConfigFetchTest._get_http_client.return_value = mock_http_client
 
-        service = encoding.JsonToMessage(sm_messages.Service,
-                                         json.dumps(self._SERVICE_CONFIG_JSON))
+        service = ParseDict(self._SERVICE_CONFIG_JSON, service_pb2.Service())
         self.assertEqual(service, service_config.fetch_service_config())
 
         template = service_config._SERVICE_MGMT_URL_TEMPLATE

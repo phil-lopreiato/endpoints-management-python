@@ -14,14 +14,16 @@
 
 """Test WSGI responses when check/quota errors occur."""
 
-import mock
 import pytest
 import webtest
+from unittest import mock
 from webtest.debugapp import debug_app as DEBUG_APP
 
-from apitools.base.py import encoding
+#from apitools.base.py import encoding
+from google.api import service_pb2
+from google.cloud import servicecontrol as sc_messages
 from endpoints_management.control import (
-    client, quota_request, sc_messages, sm_messages, wsgi,
+    client, quota_request, wsgi,
 )
 from .test_wsgi import _SYSTEM_PARAMETER_CONFIG_TEST
 
@@ -38,7 +40,7 @@ def control_client():
 
 @pytest.fixture()
 def service_config_loader():
-    service = encoding.JsonToMessage(sm_messages.Service, _SYSTEM_PARAMETER_CONFIG_TEST)
+    service = encoding.JsonToMessage(service_pb2.Service, _SYSTEM_PARAMETER_CONFIG_TEST)
     loader = mock.Mock()
     loader.load.return_value = service
     return loader
@@ -69,7 +71,7 @@ def test_handle_out_of_quota(control_client, test_app):
     quota_resp = sc_messages.AllocateQuotaResponse(
         allocateErrors = [
             sc_messages.QuotaError(
-                code=quota_request._QuotaErrors.RESOURCE_EXHAUSTED,
+                code=QuotaError.Code.RESOURCE_EXHAUSTED,
                 description=u'details')
         ]
     )

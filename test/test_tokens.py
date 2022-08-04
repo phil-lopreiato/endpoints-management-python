@@ -13,15 +13,12 @@
 # limitations under the License.
 
 import copy
-import mock
 import json
 import time
 import unittest
+from unittest import mock
 
 from Crypto import PublicKey
-from jwkest import ecc
-from jwkest import jwk
-from jwkest import jws
 from test import token_utils
 
 from endpoints_management.auth import suppliers

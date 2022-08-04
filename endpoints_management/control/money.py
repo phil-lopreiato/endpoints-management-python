@@ -24,12 +24,12 @@ from __future__ import absolute_import
 import logging
 import sys
 
-from . import sc_messages
+from google.type import money_pb2
 
 _logger = logging.getLogger(__name__)
 
-_INT64_MAX = sys.maxint
-_INT64_MIN = -sys.maxint - 1
+_INT64_MAX = sys.maxsize
+_INT64_MIN = -sys.maxsize - 1
 _BILLION = 1000000000
 MAX_NANOS = _BILLION - 1
 _MSG_3_LETTERS_LONG = u'The currency code is not 3 letters long'
@@ -47,8 +47,8 @@ def check_valid(money):
     Raises:
       ValueError: if the money instance is invalid
     """
-    if not isinstance(money, sc_messages.Money):
-        raise ValueError(u'Inputs should be of type %s' % (sc_messages.Money,))
+    if not isinstance(money, money_pb2.Money):
+        raise ValueError(u'Inputs should be of type %s' % (money_pb2.Money,))
     currency = money.currencyCode
     if not currency or len(currency) != 3:
         raise ValueError(_MSG_3_LETTERS_LONG)

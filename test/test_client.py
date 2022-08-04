@@ -16,18 +16,20 @@ from __future__ import absolute_import
 
 from apitools.base.py import exceptions
 import datetime
-import mock
 import os
 import tempfile
-import unittest2
+import unittest
 from expects import be_false, be_none, be_true, expect, equal, raise_error
+from unittest import mock
+
+from google.cloud import servicemanagement as sc_messages
 
 from endpoints_management.control import (
-    caches, check_request, client, quota_request, report_request, sc_messages
+    caches, check_request, client, quota_request, report_request
 )
 
 
-class TestSimpleLoader(unittest2.TestCase):
+class TestSimpleLoader(unittest.TestCase):
     SERVICE_NAME = u'simpler-loader'
 
     @mock.patch(u"endpoints_management.control.client.ReportOptions", autospec=True)
@@ -64,7 +66,7 @@ _TEST_CONFIG = u"""{
 """
 
 
-class TestEnvironmentLoader(unittest2.TestCase):
+class TestEnvironmentLoader(unittest.TestCase):
     SERVICE_NAME = u'environment-loader'
 
     def setUp(self):
@@ -162,7 +164,7 @@ def _make_dummy_check_request(project_id, service_name):
     return info.as_check_request()
 
 
-class TestClientStartAndStop(unittest2.TestCase):
+class TestClientStartAndStop(unittest.TestCase):
     SERVICE_NAME = u'start-and-stop'
     PROJECT_ID = SERVICE_NAME + u'.project'
 
@@ -219,7 +221,7 @@ class TestClientStartAndStop(unittest2.TestCase):
         expect(self._mock_transport.services.Report.called).to(be_true)
 
 
-class TestClientCheck(unittest2.TestCase):
+class TestClientCheck(unittest.TestCase):
     SERVICE_NAME = u'check'
     PROJECT_ID = SERVICE_NAME + u'.project'
 
@@ -251,7 +253,7 @@ class TestClientCheck(unittest2.TestCase):
         dummy_request = _make_dummy_check_request(self.PROJECT_ID,
                                                   self.SERVICE_NAME)
         dummy_response = sc_messages.CheckResponse(
-            operationId=dummy_request.checkRequest.operation.operationId)
+            operation_id=dummy_request.checkRequest.operation.operation_id)
         t.services.Check.return_value = dummy_response
         expect(self._subject.check(dummy_request)).to(equal(dummy_response))
         t.reset_mock()
@@ -267,7 +269,7 @@ class TestClientCheck(unittest2.TestCase):
         expect(self._subject.check(dummy_request)).to(be_none)
 
 
-class TestClientQuota(unittest2.TestCase):
+class TestClientQuota(unittest.TestCase):
     SERVICE_NAME = u'quota'
     PROJECT_ID = SERVICE_NAME + u'.project'
 
@@ -294,8 +296,8 @@ class TestClientQuota(unittest2.TestCase):
         resp = self._subject.allocate_quota(dummy_request)
         with self._subject._quota_aggregator._out as out_deque:
             expect(out_deque[0]).to(equal(dummy_request))
-        expect(resp.operationId).to(equal(
-            dummy_request.allocateQuotaRequest.allocateOperation.operationId))
+        expect(resp.operation_id).to(equal(
+            dummy_request.allocateQuotaRequest.allocateOperation.operation_id))
 
     @mock.patch(u"endpoints_management.control.client._THREAD_CLASS", spec=True)
     def test_should_not_send_the_request_if_cached(self, dummy_thread_class):
@@ -304,7 +306,7 @@ class TestClientQuota(unittest2.TestCase):
         dummy_request = _make_dummy_quota_request(self.PROJECT_ID,
                                                   self.SERVICE_NAME)
         dummy_response = sc_messages.AllocateQuotaResponse(
-            operationId=dummy_request.allocateQuotaRequest.allocateOperation.operationId)
+            operation_id=dummy_request.allocateQuotaRequest.allocateOperation.operation_id)
         t.services.AllocateQuota.return_value = dummy_response
         expect(self._subject.allocate_quota(dummy_request)).to(equal(dummy_response))
         t.reset_mock()
@@ -317,12 +319,12 @@ class TestClientQuota(unittest2.TestCase):
         dummy_request = _make_dummy_quota_request(self.PROJECT_ID,
                                                   self.SERVICE_NAME)
         dummy_response = sc_messages.AllocateQuotaResponse(
-            operationId=dummy_request.allocateQuotaRequest.allocateOperation.operationId)
+            operation_id=dummy_request.allocateQuotaRequest.allocateOperation.operation_id)
         self._mock_transport.services.AllocateQuota.side_effect = exceptions.Error()
         expect(self._subject.allocate_quota(dummy_request)).to(equal(dummy_response))
 
 
-class TestClientReport(unittest2.TestCase):
+class TestClientReport(unittest.TestCase):
     SERVICE_NAME = u'report'
     PROJECT_ID = SERVICE_NAME + u'.project'
 
@@ -375,7 +377,7 @@ class TestClientReport(unittest2.TestCase):
         expect(self._mock_transport.services.Report.called).to(be_true)
 
 
-class TestNoSchedulerThread(unittest2.TestCase):
+class TestNoSchedulerThread(unittest.TestCase):
     SERVICE_NAME = u'no-scheduler-thread'
     PROJECT_ID = SERVICE_NAME + u'.project'
 
@@ -434,7 +436,7 @@ class TestNoSchedulerThread(unittest2.TestCase):
         dummy_request = _make_dummy_check_request(self.PROJECT_ID,
                                                   self.SERVICE_NAME)
         dummy_response = sc_messages.CheckResponse(
-            operationId=dummy_request.checkRequest.operation.operationId)
+            operation_id=dummy_request.checkRequest.operation.operation_id)
         t = self._mock_transport
         t.services.Check.return_value = dummy_response
         expect(self._subject.check(dummy_request)).to(equal(dummy_response))

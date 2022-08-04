@@ -29,7 +29,8 @@ from __future__ import absolute_import
 
 
 from enum import Enum
-from . import distribution, metric_value, sc_messages, MetricKind, ValueType
+from google.cloud import servicecontrol as sc_messages
+from . import distribution, metric_value, MetricKind, ValueType
 
 
 def _add_metric_value(name, value, an_op):

@@ -14,18 +14,21 @@
 
 from __future__ import absolute_import
 
-from apitools.base.py import encoding
-import mock
+#from apitools.base.py import encoding
 import os
 import tempfile
-import unittest2
+import unittest
 import webtest
 from expects import be_false, be_none, be_true, expect, equal, raise_error
+from unittest import mock
+
+from google.api import service_pb2
+from google.cloud import servicecontrol as sc_messages
 
 from endpoints_management.auth import suppliers
 from endpoints_management.auth import tokens
 from endpoints_management.control import (client, report_request, service,
-                                          sc_messages, sm_messages, wsgi)
+                                          wsgi)
 
 
 def _dummy_start_response(status, response_headers, exc_info=None):
@@ -42,7 +45,7 @@ class _DummyWsgiApp(object):
         return _DUMMY_RESPONSE
 
 
-class TestEnvironmentMiddleware(unittest2.TestCase):
+class TestEnvironmentMiddleware(unittest.TestCase):
 
     def test_should_add_service_et_al_to_environment(self):
         cls = wsgi.EnvironmentMiddleware
@@ -78,7 +81,7 @@ class TestEnvironmentMiddleware(unittest2.TestCase):
         assert given[cls.METHOD_INFO].selector == 'allow-all.PATCH'
 
 
-class TestMiddleware(unittest2.TestCase):
+class TestMiddleware(unittest.TestCase):
     PROJECT_ID = u'middleware'
 
     def test_should_not_send_requests_if_there_is_no_service(self):
@@ -296,7 +299,7 @@ _SYSTEM_PARAMETER_CONFIG_TEST = b"""
 }
 """
 
-class TestMiddlewareWithParams(unittest2.TestCase):
+class TestMiddlewareWithParams(unittest.TestCase):
     PROJECT_ID = u'middleware-with-params'
 
     def setUp(self):
@@ -480,7 +483,7 @@ class TestMiddlewareWithParams(unittest2.TestCase):
 AuthMiddleware = wsgi.AuthenticationMiddleware
 
 
-class TestAuthenticationMiddleware(unittest2.TestCase):
+class TestAuthenticationMiddleware(unittest.TestCase):
 
     def setUp(self):
         self._mock_application = _DummyWsgiApp()
@@ -575,7 +578,7 @@ class TestAuthenticationMiddleware(unittest2.TestCase):
             return os.environ.get(wsgi.AuthenticationMiddleware.USER_INFO)
 
 
-class TestCreateAuthenticator(unittest2.TestCase):
+class TestCreateAuthenticator(unittest.TestCase):
     def test_create_without_service(self):
         with self.assertRaises(ValueError):
             wsgi._create_authenticator(None)
@@ -598,7 +601,7 @@ class TestCreateAuthenticator(unittest2.TestCase):
 
 patched_platform_environ = {}
 @mock.patch.dict(u'os.environ', patched_platform_environ, clear=True)
-class TestPlatformDetection(unittest2.TestCase):
+class TestPlatformDetection(unittest.TestCase):
 
     def test_development(self):
         os.environ[u'SERVER_SOFTWARE'] = u'Development/2.0.0'
@@ -634,4 +637,4 @@ class TestPlatformDetection(unittest2.TestCase):
 
 
 def _read_service_from_json(json):
-    return encoding.JsonToMessage(sm_messages.Service, json)
+    return encoding.JsonToMessage(service_pb2.Service, json)

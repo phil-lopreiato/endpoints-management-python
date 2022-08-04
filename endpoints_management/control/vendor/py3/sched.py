@@ -35,6 +35,8 @@ from __future__ import absolute_import
 # flake8: noqa
 # pylint: skip-file
 
+from builtins import map
+from builtins import object
 import time
 import heapq
 from collections import namedtuple

@@ -16,11 +16,9 @@
 
 from __future__ import absolute_import
 
-from ..gen import servicecontrol_v1_messages as sc_messages
-from ..gen import servicemanagement_v1_messages as sm_messages
-from ..gen import servicecontrol_v1_client as api_client
+from google.api import metric_pb2 as ga_metric
 
 # Alias the generated MetricKind and ValueType enums to simplify their usage
 # elsewhere
-MetricKind = sm_messages.MetricDescriptor.MetricKindValueValuesEnum
-ValueType = sm_messages.MetricDescriptor.ValueTypeValueValuesEnum
+MetricKind = ga_metric.MetricDescriptor.MetricKind
+ValueType = ga_metric.MetricDescriptor.ValueType

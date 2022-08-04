@@ -16,11 +16,11 @@ from __future__ import absolute_import
 
 import base64
 import datetime
-import unittest2
+import unittest
 from expects import be_none, be_true, expect, equal, raise_error
+from google.cloud import servicemanagement as sm_messages
 
-from endpoints_management.control import (label_descriptor, sm_messages,
-                                          report_request)
+from endpoints_management.control import (label_descriptor, report_request)
 
 _KNOWN = label_descriptor.KnownLabels
 ValueType = label_descriptor.ValueType
@@ -66,11 +66,11 @@ class KnownLabelsBase(object):
         expect(given_dict).to(equal(self.WANTED_LABEL_DICT))
 
 
-class TestCredentialIdWithNoCreds(KnownLabelsBase, unittest2.TestCase):
+class TestCredentialIdWithNoCreds(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.CREDENTIAL_ID
 
 
-class TestCredentialIdWithApiKey(KnownLabelsBase, unittest2.TestCase):
+class TestCredentialIdWithApiKey(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.CREDENTIAL_ID
     GIVEN_INFO = report_request.Info(
         api_key = u'dummy_api_key',
@@ -78,7 +78,7 @@ class TestCredentialIdWithApiKey(KnownLabelsBase, unittest2.TestCase):
     WANTED_LABEL_DICT = {SUBJECT.label_name: b'apiKey:dummy_api_key'}
 
 
-class TestCredentialIdWithAuthIssuer(KnownLabelsBase, unittest2.TestCase):
+class TestCredentialIdWithAuthIssuer(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.CREDENTIAL_ID
     GIVEN_INFO = report_request.Info(
         auth_issuer = u'dummy_issuer',
@@ -88,47 +88,47 @@ class TestCredentialIdWithAuthIssuer(KnownLabelsBase, unittest2.TestCase):
     WANTED_LABEL_DICT = {SUBJECT.label_name: WANTED_VALUE}
 
 
-class EndUser(KnownLabelsBase, unittest2.TestCase):
+class EndUser(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.END_USER
 
 
-class EndUserCountry(KnownLabelsBase, unittest2.TestCase):
+class EndUserCountry(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.END_USER_COUNTRY
 
 
-class ErrorType(KnownLabelsBase, unittest2.TestCase):
+class ErrorType(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.ERROR_TYPE
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'2xx'}
 
 
-class Protocol(KnownLabelsBase, unittest2.TestCase):
+class Protocol(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.PROTOCOL
     WANTED_LABEL_DICT = {
         SUBJECT.label_name: report_request.ReportedProtocols.UNKNOWN.name
     }
 
 
-class Referer(KnownLabelsBase, unittest2.TestCase):
+class Referer(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.REFERER
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'dummy_referer'}
 
 
-class ResponseCode(KnownLabelsBase, unittest2.TestCase):
+class ResponseCode(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.RESPONSE_CODE
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'200'}
 
 
-class ResponseCodeClass(KnownLabelsBase, unittest2.TestCase):
+class ResponseCodeClass(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.RESPONSE_CODE_CLASS
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'2xx'}
 
 
-class StatusCodeWithOkStatus(KnownLabelsBase, unittest2.TestCase):
+class StatusCodeWithOkStatus(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.STATUS_CODE
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'0'}
 
 
-class StatusCodeWithKnown4XXStatus(KnownLabelsBase, unittest2.TestCase):
+class StatusCodeWithKnown4XXStatus(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.STATUS_CODE
     GIVEN_INFO = report_request.Info(
         response_code = 401,
@@ -136,7 +136,7 @@ class StatusCodeWithKnown4XXStatus(KnownLabelsBase, unittest2.TestCase):
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'16'}
 
 
-class StatusCodeWithUnknown4XXStatus(KnownLabelsBase, unittest2.TestCase):
+class StatusCodeWithUnknown4XXStatus(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.STATUS_CODE
     GIVEN_INFO = report_request.Info(
         response_code = 477,
@@ -144,7 +144,7 @@ class StatusCodeWithUnknown4XXStatus(KnownLabelsBase, unittest2.TestCase):
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'9'}
 
 
-class StatusCodeWithKnown5XXStatus(KnownLabelsBase, unittest2.TestCase):
+class StatusCodeWithKnown5XXStatus(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.STATUS_CODE
     GIVEN_INFO = report_request.Info(
         response_code = 501,
@@ -152,7 +152,7 @@ class StatusCodeWithKnown5XXStatus(KnownLabelsBase, unittest2.TestCase):
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'12'}
 
 
-class StatusCodeWithUnknown5XXStatus(KnownLabelsBase, unittest2.TestCase):
+class StatusCodeWithUnknown5XXStatus(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.STATUS_CODE
     GIVEN_INFO = report_request.Info(
         response_code = 577,
@@ -160,7 +160,7 @@ class StatusCodeWithUnknown5XXStatus(KnownLabelsBase, unittest2.TestCase):
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'13'}
 
 
-class StatusCodeWithUnknownStatus(KnownLabelsBase, unittest2.TestCase):
+class StatusCodeWithUnknownStatus(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.STATUS_CODE
     GIVEN_INFO = report_request.Info(
         response_code = 777,
@@ -168,102 +168,102 @@ class StatusCodeWithUnknownStatus(KnownLabelsBase, unittest2.TestCase):
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'2'}
 
 
-class GaeCloneId(KnownLabelsBase, unittest2.TestCase):
+class GaeCloneId(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GAE_CLONE_ID
 
 
-class GaeModuleId(KnownLabelsBase, unittest2.TestCase):
+class GaeModuleId(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GAE_MODULE_ID
 
 
-class GaeReplicaIndex(KnownLabelsBase, unittest2.TestCase):
+class GaeReplicaIndex(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GAE_REPLICA_INDEX
 
 
-class GaeVersionId(KnownLabelsBase, unittest2.TestCase):
+class GaeVersionId(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GAE_VERSION_ID
 
 
-class GcpLocation(KnownLabelsBase, unittest2.TestCase):
+class GcpLocation(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_LOCATION
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'dummy_location'}
 
 
-class GcpProject(KnownLabelsBase, unittest2.TestCase):
+class GcpProject(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_PROJECT
 
 
-class GcpRegion(KnownLabelsBase, unittest2.TestCase):
+class GcpRegion(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_REGION
 
 
-class GcpResourceId(KnownLabelsBase, unittest2.TestCase):
+class GcpResourceId(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_RESOURCE_ID
 
 
-class GcpResourceType(KnownLabelsBase, unittest2.TestCase):
+class GcpResourceType(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_RESOURCE_TYPE
 
 
-class GcpService(KnownLabelsBase, unittest2.TestCase):
+class GcpService(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_SERVICE
 
 
-class GcpZone(KnownLabelsBase, unittest2.TestCase):
+class GcpZone(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_ZONE
 
 
-class GcpUid(KnownLabelsBase, unittest2.TestCase):
+class GcpUid(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_UID
 
 
-class GcpApiMethod(KnownLabelsBase, unittest2.TestCase):
+class GcpApiMethod(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_API_METHOD
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'dummy_method'}
 
 
-class GcpApiVersion(KnownLabelsBase, unittest2.TestCase):
+class GcpApiVersion(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.GCP_API_VERSION
     WANTED_LABEL_DICT = {SUBJECT.label_name: u'dummy_version'}
 
 
-class SccAndroidCertFingerprint(KnownLabelsBase, unittest2.TestCase):
+class SccAndroidCertFingerprint(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_ANDROID_CERT_FINGERPRINT
 
 
-class SccAndroidPackageName(KnownLabelsBase, unittest2.TestCase):
+class SccAndroidPackageName(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_ANDROID_PACKAGE_NAME
 
 
-class SccCallerIp(KnownLabelsBase, unittest2.TestCase):
+class SccCallerIp(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_CALLER_IP
 
 
-class SccIosBundleId(KnownLabelsBase, unittest2.TestCase):
+class SccIosBundleId(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_IOS_BUNDLE_ID
 
 
-class SccPlatform(KnownLabelsBase, unittest2.TestCase):
+class SccPlatform(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_PLATFORM
     WANTED_LABEL_DICT = {
         SUBJECT.label_name: report_request.ReportedPlatforms.UNKNOWN.name
     }
 
 
-class SccReferer(KnownLabelsBase, unittest2.TestCase):
+class SccReferer(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_REFERER
 
 
-class SccServiceAgent(KnownLabelsBase, unittest2.TestCase):
+class SccServiceAgent(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_SERVICE_AGENT
     WANTED_LABEL_DICT = {SUBJECT.label_name: label_descriptor.SERVICE_AGENT}
 
 
-class SccUserAgent(KnownLabelsBase, unittest2.TestCase):
+class SccUserAgent(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_USER_AGENT
     WANTED_LABEL_DICT = {SUBJECT.label_name: label_descriptor.USER_AGENT}
 
 
-class SccConsumerProject(KnownLabelsBase, unittest2.TestCase):
+class SccConsumerProject(KnownLabelsBase, unittest.TestCase):
     SUBJECT = _KNOWN.SCC_CONSUMER_PROJECT
     WANTED_LABEL_DICT = {SUBJECT.label_name: "1234"}

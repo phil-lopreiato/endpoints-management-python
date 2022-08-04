@@ -17,16 +17,17 @@ from __future__ import absolute_import
 import datetime
 import hashlib
 
-import unittest2
+import unittest
 from expects import equal, expect, raise_error
 
-from apitools.base.py import encoding
+from google.cloud import servicecontrol as sc_messages
+from google.type import money_pb2
 from endpoints_management.control import (distribution, timestamp,
-                                          metric_value, sc_messages)
+                                          metric_value)
 from endpoints_management.control import MetricKind
 
 
-class TestUpdateHash(unittest2.TestCase):
+class TestUpdateHash(unittest.TestCase):
     NOTHING_ADDED = hashlib.md5().digest()
 
     def make_hash(self, mv):
@@ -50,7 +51,7 @@ class TestUpdateHash(unittest2.TestCase):
         a_dict = {u'test': u'dict'}
         mv1 = metric_value.create(labels=a_dict)
         mv2 = metric_value.create(labels=a_dict)
-        mv2.moneyValue = sc_messages.Money(currencyCode=u'JPY')
+        mv2.moneyValue = money_pb2.Money(currency_code=u'JPY')
         want = self.make_hash(mv1)
         got = self.make_hash(mv2)
         expect(got).to_not(equal(want))
@@ -62,7 +63,7 @@ class TestSign(TestUpdateHash):
         return metric_value.sign(mv)
 
 
-class TestMerge(unittest2.TestCase):
+class TestMerge(unittest.TestCase):
     A_FLOAT_VALUE = 1.0
     EARLY = timestamp.to_rfc3339(datetime.datetime(1970, 1, 1, 10, 0, 0))
     LATER = timestamp.to_rfc3339(datetime.datetime(1990, 1, 1, 10, 0, 0))
@@ -85,8 +86,8 @@ class TestMerge(unittest2.TestCase):
             endTime=self.LATER)
         self.test_value_with_money = metric_value.create(
             labels=self.TEST_LABELS,
-            moneyValue=sc_messages.Money(
-                currencyCode=u'JPY', units=100, nanos=0))
+            moneyValue=money_pb2.Money(
+                currency_code=u'JPY', units=100, nanos=0))
 
     def test_should_fail_for_metric_values_with_different_types(self):
         changed = metric_value.create(labels=self.TEST_LABELS, int64Value=1)

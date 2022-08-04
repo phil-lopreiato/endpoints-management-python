@@ -24,22 +24,26 @@ that wraps another WSGI application to uses a provided
 
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 from datetime import datetime
-import httplib
+import http.client
 import logging
 import os
 import socket
 import uuid
-import urllib2
-import urlparse
+import urllib.request, urllib.error, urllib.parse
+import urllib.parse
 import wsgiref.util
 
 import backoff
+from google.api import service_pb2
 from webob.exc import HTTPServiceUnavailable, status_map as exc_status_map
 
 from ..auth import suppliers, tokens
 from ..config.service_config import ServiceConfigException
-from . import check_request, client, quota_request, report_request, service, sm_messages
+from . import check_request, client, quota_request, report_request, service
 
 
 _logger = logging.getLogger(__name__)
@@ -55,11 +59,11 @@ def _running_on_gce():
     headers = {u'Metadata-Flavor': u'Google'}
 
     try:
-        request = urllib2.Request(_METADATA_SERVER_URL, headers=headers)
-        response = urllib2.urlopen(request)
+        request = urllib.request.Request(_METADATA_SERVER_URL, headers=headers)
+        response = urllib.request.urlopen(request)
         if response.info().getheader(u'Metadata-Flavor') == u'Google':
             return True
-    except (urllib2.URLError, socket.error):
+    except (urllib.error.URLError, socket.error):
         pass
 
     return False
@@ -244,7 +248,7 @@ class EnvironmentMiddleware(object):
           a_service (:class:`endpoints_management.gen.servicemanagement_v1_messages.Service`):
             a service instance
         """
-        if not isinstance(a_service, sm_messages.Service):
+        if not isinstance(a_service, service_p22.Service):
             raise ValueError(u"service is None or not an instance of Service")
 
         self._application = application
@@ -269,7 +273,7 @@ class EnvironmentMiddleware(object):
         environ[self.SERVICE_NAME] = self._service.name
         environ[self.METHOD_REGISTRY] = self._method_registry
         environ[self.REPORTING_RULES] = self._reporting_rules
-        parsed_uri = urlparse.urlparse(wsgiref.util.request_uri(environ))
+        parsed_uri = urllib.parse.urlparse(wsgiref.util.request_uri(environ))
         http_method = _request_method(environ)
         method_info = self._method_registry.lookup(http_method, parsed_uri.path)
         if method_info:
@@ -342,7 +346,7 @@ class Middleware(object):
 
         # Determine if the request can proceed
         http_method = _request_method(environ)
-        parsed_uri = urlparse.urlparse(wsgiref.util.request_uri(environ))
+        parsed_uri = urllib.parse.urlparse(wsgiref.util.request_uri(environ))
         app_info = _AppInfo()
         # TODO: determine if any of the more complex ways of getting the request size
         # (e.g) buffering and counting the wsgi input stream is more appropriate here
@@ -510,7 +514,7 @@ class Middleware(object):
     def _handle_check_response(self, app_info, check_resp, start_response):
         code, detail, api_key_valid = check_request.convert_response(
             check_resp, self._project_id)
-        if code == httplib.OK:
+        if code == http.client.OK:
             return None  # the check was OK
 
         # there was problem; the request cannot proceed
@@ -522,7 +526,7 @@ class Middleware(object):
     def _handle_quota_response(self, app_info, quota_resp, start_response):
         code, detail = quota_request.convert_response(
             quota_resp, self._project_id)
-        if code == httplib.OK:
+        if code == http.client.OK:
             return None  # the quota was OK
 
         # there was problem; the request cannot proceed
@@ -531,7 +535,7 @@ class Middleware(object):
         return self._return_simple_http_response(start_response, code, detail)
 
     def _handle_missing_api_key(self, app_info, start_response):
-        code = httplib.UNAUTHORIZED
+        code = http.client.UNAUTHORIZED
         detail = self._NO_API_KEY_MSG
         _logger.warn(u'Check not performed %d, %s', code, detail)
         app_info.response_code = code
@@ -560,7 +564,7 @@ class _AppInfo(object):
 
     def __init__(self):
         self.api_key_valid = True
-        self.response_code = httplib.INTERNAL_SERVER_ERROR
+        self.response_code = http.client.INTERNAL_SERVER_ERROR
         self.response_size = report_request.NOT_SET
         self.request_size = report_request.NOT_SET
         self.http_method = None
@@ -610,7 +614,7 @@ def _find_api_key_param(info, parsed_uri):
     if not params:
         return None
 
-    param_dict = urlparse.parse_qs(parsed_uri.query)
+    param_dict = urllib.parse.parse_qs(parsed_uri.query)
     if not param_dict:
         return None
 
@@ -628,7 +632,7 @@ _DEFAULT_API_KEYS = (u'key', u'api_key')
 
 
 def _find_default_api_key_param(parsed_uri):
-    param_dict = urlparse.parse_qs(parsed_uri.query)
+    param_dict = urllib.parse.parse_qs(parsed_uri.query)
     if not param_dict:
         return None
 
@@ -662,7 +666,7 @@ def _create_authenticator(a_service):
       a_service (:class:`endpoints_management.gen.servicemanagement_v1_messages.Service`): a
         service instance
     """
-    if not isinstance(a_service, sm_messages.Service):
+    if not isinstance(a_service, service_pb2.Service):
         raise ValueError(u"service is None or not an instance of Service")
 
     authentication = a_service.authentication
@@ -767,7 +771,7 @@ def _extract_auth_token(environ):
         return
 
     # Then try to read auth token from query.
-    parameters = urlparse.parse_qs(environ.get(u"QUERY_STRING", u""))
+    parameters = urllib.parse.parse_qs(environ.get(u"QUERY_STRING", u""))
     if _ACCESS_TOKEN_PARAM_NAME in parameters:
         auth_token, = parameters[_ACCESS_TOKEN_PARAM_NAME]
         return auth_token

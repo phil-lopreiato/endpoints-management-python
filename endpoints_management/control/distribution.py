@@ -29,11 +29,12 @@ in the correct state.
 from __future__ import absolute_import
 from __future__ import division
 
+from builtins import zip
 import bisect
 import logging
 import math
 
-from . import sc_messages
+from google.cloud import servicecontrol as sc_messages
 
 _logger = logging.getLogger(__name__)
 
@@ -63,10 +64,10 @@ def create_exponential(num_finite_buckets, growth_factor, scale):
     if scale <= 0.0:
         raise ValueError(_BAD_FLOAT_ARG % (u'scale', 0.0))
     return sc_messages.Distribution(
-        bucketCounts=[0] * (num_finite_buckets + 2),
-        exponentialBuckets=sc_messages.ExponentialBuckets(
-            numFiniteBuckets=num_finite_buckets,
-            growthFactor=growth_factor,
+        bucket_counts=[0] * (num_finite_buckets + 2),
+        exponential_buckets=sc_messages.Distribution.ExponentialBuckets(
+            num_finite_buckets=num_finite_buckets,
+            growth_factor=growth_factor,
             scale=scale))
 
 
@@ -89,9 +90,9 @@ def create_linear(num_finite_buckets, width, offset):
     if width <= 0.0:
         raise ValueError(_BAD_FLOAT_ARG % (u'width', 0.0))
     return sc_messages.Distribution(
-        bucketCounts=[0] * (num_finite_buckets + 2),
-        linearBuckets=sc_messages.LinearBuckets(
-            numFiniteBuckets=num_finite_buckets,
+        bucket_counts=[0] * (num_finite_buckets + 2),
+        linear_buckets=sc_messages.Distribution.LinearBuckets(
+            num_finite_bucketes=num_finite_buckets,
             width=width,
             offset=offset))
 
@@ -114,8 +115,8 @@ def create_explicit(bounds):
     if len(safe_bounds) != len(set(safe_bounds)):
         raise ValueError(u'Detected two elements of bounds that are the same')
     return sc_messages.Distribution(
-        bucketCounts=[0] * (len(safe_bounds) + 1),
-        explicitBuckets=sc_messages.ExplicitBuckets(bounds=safe_bounds))
+        bucket_counts=[0] * (len(safe_bounds) + 1),
+        explicit_buckets=sc_messages.Distribution.ExplicitBuckets(bounds=safe_bounds))
 
 
 def add_sample(a_float, dist):
@@ -131,13 +132,13 @@ def add_sample(a_float, dist):
       ValueError: if there are not enough bucket count fields in `dist`
     """
     dist_type, _ = _detect_bucket_option(dist)
-    if dist_type == u'exponentialBuckets':
+    if dist_type == u'exponential_buckets':
         _update_general_statistics(a_float, dist)
         _update_exponential_bucket_count(a_float, dist)
-    elif dist_type == u'linearBuckets':
+    elif dist_type == u'linear_buckets':
         _update_general_statistics(a_float, dist)
         _update_linear_bucket_count(a_float, dist)
-    elif dist_type == u'explicitBuckets':
+    elif dist_type == u'explicit_buckets':
         _update_general_statistics(a_float, dist)
         _update_explicit_bucket_count(a_float, dist)
     else:
@@ -167,7 +168,7 @@ def merge(prior, latest):
                       prior,
                       latest)
         raise ValueError(u'Bucket options do not match')
-    if len(prior.bucketCounts) != len(latest.bucketCounts):
+    if len(prior.bucket_counts) != len(latest.bucket_counts):
         _logger.error(u'Bucket count sizes do not match. From %s To: %s',
                       prior,
                       latest)
@@ -177,8 +178,8 @@ def merge(prior, latest):
 
     old_count = latest.count
     old_mean = latest.mean
-    old_summed_variance = latest.sumOfSquaredDeviation
-    bucket_counts = latest.bucketCounts
+    old_summed_variance = latest.sum_of_squared_deviation
+    bucket_counts = latest.bucket_counts
 
     # Update the latest
     latest.count += prior.count
@@ -186,11 +187,11 @@ def merge(prior, latest):
     latest.minimum = min(prior.minimum, latest.minimum)
     latest.mean = ((old_count * old_mean + prior.count * prior.mean) /
                    latest.count)
-    latest.sumOfSquaredDeviation = (
-        old_summed_variance + prior.sumOfSquaredDeviation +
+    latest.sum_of_squared_deviation = (
+        old_summed_variance + prior.sum_of_sqaured_deviation +
         old_count * (latest.mean - old_mean) ** 2 +
         prior.count * (latest.mean - prior.mean) ** 2)
-    for i, (x, y) in enumerate(zip(prior.bucketCounts, bucket_counts)):
+    for i, (x, y) in enumerate(zip(prior.bucket_counts, bucket_counts)):
         bucket_counts[i] = x + y
 
 
@@ -207,26 +208,26 @@ def _is_close_enough(x, y):
 # bucket_option field in google/api/servicecontrol/v1/distribution.proto, and
 # should be kept in sync with that
 _DISTRIBUTION_ONEOF_FIELDS = (
-    u'linearBuckets', u'exponentialBuckets', u'explicitBuckets')
+    u'linear_buckets', u'exponential_buckets', u'explicit_buckets')
 
 
 def _detect_bucket_option(distribution):
     for f in _DISTRIBUTION_ONEOF_FIELDS:
-        value = distribution.get_assigned_value(f)
+        value = getattr(distribution, f)
         if value is not None:
             return f, value
     return None, None
 
 
 def _linear_buckets_nearly_equal(a, b):
-    return ((a.numFiniteBuckets == b.numFiniteBuckets) and
+    return ((a.num_finite_buckets == b.num_finite_buckets) and
             _is_close_enough(a.width, b.width) or
             _is_close_enough(a.offset, b.offset))
 
 
 def _exponential_buckets_nearly_equal(a, b):
-    return ((a.numFiniteBuckets == b.numFiniteBuckets) and
-            _is_close_enough(a.growthFactor, b.growthFactor) and
+    return ((a.num_finite_buckets == b.num_finite_buckets) and
+            _is_close_enough(a.growth_factor, b.growth_factor) and
             _is_close_enough(a.scale, b.scale))
 
 
@@ -255,11 +256,11 @@ def _buckets_nearly_equal(a_dist, b_dist):
     b_type, b_buckets = _detect_bucket_option(b_dist)
     if a_type != b_type:
         return False
-    elif a_type == u'linearBuckets':
+    elif a_type == u'linear_buckets':
         return _linear_buckets_nearly_equal(a_buckets, b_buckets)
-    elif a_type == u'exponentialBuckets':
+    elif a_type == u'exponential_buckets':
         return _exponential_buckets_nearly_equal(a_buckets, b_buckets)
-    elif a_type == u'explicitBuckets':
+    elif a_type == u'explicit_buckets':
         return _explicit_buckets_nearly_equal(a_buckets, b_buckets)
     else:
         return False
@@ -279,7 +280,7 @@ def _update_general_statistics(a_float, dist):
         dist.maximum = a_float
         dist.minimum = a_float
         dist.mean = a_float
-        dist.sumOfSquaredDeviation = 0
+        dist.sum_of_squared_deviation = 0
     else:
         old_count = dist.count
         old_mean = dist.mean
@@ -289,7 +290,7 @@ def _update_general_statistics(a_float, dist):
         dist.mean = new_mean
         dist.maximum = max(a_float, dist.maximum)
         dist.minimum = min(a_float, dist.minimum)
-        dist.sumOfSquaredDeviation += delta_sum_squares
+        dist.sum_of_squared_deviation += delta_sum_squares
 
 
 _BAD_UNSET_BUCKETS = u'cannot update a distribution with unset %s'
@@ -311,8 +312,8 @@ def _update_exponential_bucket_count(a_float, dist):
     buckets = dist.exponentialBuckets
     if buckets is None:
         raise ValueError(_BAD_UNSET_BUCKETS % (u'exponential buckets'))
-    bucket_counts = dist.bucketCounts
-    num_finite_buckets = buckets.numFiniteBuckets
+    bucket_counts = dist.bucket_counts
+    num_finite_buckets = buckets.num_finite_buckets
     if len(bucket_counts) < num_finite_buckets + 2:
         raise ValueError(_BAD_LOW_BUCKET_COUNT)
     scale = buckets.scale
@@ -339,11 +340,11 @@ def _update_linear_bucket_count(a_float, dist):
       ValueError: if `dist` does not already have linear buckets defined
       ValueError: if there are not enough bucket count fields in `dist`
     """
-    buckets = dist.linearBuckets
+    buckets = dist.linear_buckets
     if buckets is None:
         raise ValueError(_BAD_UNSET_BUCKETS % (u'linear buckets'))
-    bucket_counts = dist.bucketCounts
-    num_finite_buckets = buckets.numFiniteBuckets
+    bucket_counts = dist.bucket_counts
+    num_finite_buckets = buckets.num_finite_buckets
     if len(bucket_counts) < num_finite_buckets + 2:
         raise ValueError(_BAD_LOW_BUCKET_COUNT)
     width = buckets.width
@@ -375,7 +376,7 @@ def _update_explicit_bucket_count(a_float, dist):
     buckets = dist.explicitBuckets
     if buckets is None:
         raise ValueError(_BAD_UNSET_BUCKETS % (u'explicit buckets'))
-    bucket_counts = dist.bucketCounts
+    bucket_counts = dist.bucket_counts
     bounds = buckets.bounds
     if len(bucket_counts) < len(bounds) + 1:
         raise ValueError(_BAD_LOW_BUCKET_COUNT)

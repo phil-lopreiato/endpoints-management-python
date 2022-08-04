@@ -26,26 +26,30 @@ and caching their responses.
 
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import collections
 import copy
 import hashlib
-import httplib
+import http.client
 import logging
 from datetime import datetime
 
 from apitools.base.py import encoding
+from google.cloud import servicecontrol as sc_messages
 
-from . import (caches, label_descriptor, metric_value, operation, sc_messages,
+from . import (caches, label_descriptor, metric_value, operation,
                signing)
 from .. import USER_AGENT, SERVICE_AGENT
 
 _logger = logging.getLogger(__name__)
 
 # alias for brevity
-_QuotaErrors = sc_messages.QuotaError.CodeValueValuesEnum
-_IS_OK = (httplib.OK, u'')
+_QuotaErrors = sc_messages.QuotaError.Code
+_IS_OK = (http.client.OK, u'')
 _IS_UNKNOWN = (
-    httplib.INTERNAL_SERVER_ERROR,
+    http.client.INTERNAL_SERVER_ERROR,
     u'Request blocked due to unsupported block reason {detail}')
 _QUOTA_ERROR_CONVERSION = {
     _QuotaErrors.RESOURCE_EXHAUSTED: (
@@ -53,29 +57,25 @@ _QUOTA_ERROR_CONVERSION = {
         'Quota allocation failed',
     ),
     _QuotaErrors.BILLING_NOT_ACTIVE: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'Project {project_id} has billing disabled. Please enable it',
     ),
     _QuotaErrors.PROJECT_DELETED: (
-        httplib.FORBIDDEN,
+        http.client.FORBIDDEN,
         u'Project {project_id} has been deleted',
     ),
     _QuotaErrors.API_KEY_INVALID: (
-        httplib.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         u'API not valid. Please pass a valid API key',
     ),
     _QuotaErrors.API_KEY_EXPIRED: (
-        httplib.BAD_REQUEST,
+        http.client.BAD_REQUEST,
         u'API key expired. Please renew the API key',
     ),
 
 
     # Fail open for internal server errors
     _QuotaErrors.UNSPECIFIED: _IS_OK,
-    _QuotaErrors.PROJECT_STATUS_UNAVAILABLE: _IS_OK,
-    _QuotaErrors.SERVICE_STATUS_UNAVAILABLE: _IS_OK,
-    _QuotaErrors.BILLING_STATUS_UNAVAILABLE: _IS_OK,
-    _QuotaErrors.QUOTA_SYSTEM_UNAVAILABLE: _IS_OK,
 }
 
 
@@ -198,7 +198,7 @@ class Info(collections.namedtuple(u'Info', _INFO_FIELDS), operation.Info):
         qop.quotaMetrics = [
             sc_messages.MetricValueSet(
                 metricName=name, metricValues=[sc_messages.MetricValue(int64Value=cost)])
-            for name, cost in quota_info.items()
+            for name, cost in list(quota_info.items())
         ]
 
         allocate_quota_request = sc_messages.AllocateQuotaRequest(allocateOperation=qop)
@@ -274,7 +274,7 @@ class Aggregator(object):
         with self._cache as c, self._out as out:
             c.expire()
             now = self._timer()
-            for item in c.values():
+            for item in list(c.values()):
                 if (not self._in_flush_all) and (not self._should_expire(item)):
                     if (not item.is_in_flight) and item._op_aggregator is not None:
                         item.is_in_flight = True
@@ -449,7 +449,7 @@ class QuotaOperationAggregator(object):
 
     def as_quota_operation(self):
         op = copy.deepcopy(self.op)
-        for m_name, m_value in self.metric_value_sets.items():
+        for m_name, m_value in list(self.metric_value_sets.items()):
             op.quotaMetrics.append(sc_messages.MetricValueSet(
                 metricName=m_name, metricValues=[m_value]))
         return op

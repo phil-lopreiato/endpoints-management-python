@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 import datetime
 import httplib
-import unittest2
+import unittest
 from operator import attrgetter
 from expects import be_none, equal, expect, raise_error
 
@@ -27,7 +27,7 @@ from endpoints_management.control import (check_request, metric_value,
                                           sc_messages)
 
 
-class TestSign(unittest2.TestCase):
+class TestSign(unittest.TestCase):
 
     def setUp(self):
         op = sc_messages.Operation(
@@ -96,7 +96,7 @@ class TestSign(unittest2.TestCase):
         expect(with_qprops).not_to(equal(without_qprops))
 
 
-class TestAggregatorCheck(unittest2.TestCase):
+class TestAggregatorCheck(unittest.TestCase):
     SERVICE_NAME = u'service.check'
     FAKE_OPERATION_ID = u'service.general.check'
 
@@ -137,7 +137,7 @@ class TestAggregatorCheck(unittest2.TestCase):
         expect(agg.check(req)).to(be_none)
 
 
-class TestAggregatorThatCannotCache(unittest2.TestCase):
+class TestAggregatorThatCannotCache(unittest.TestCase):
     SERVICE_NAME = u'service.no_cache'
     FAKE_OPERATION_ID = u'service.no_cache.op_id'
 
@@ -166,7 +166,7 @@ class TestAggregatorThatCannotCache(unittest2.TestCase):
 
 
 
-class TestCachingAggregator(unittest2.TestCase):
+class TestCachingAggregator(unittest.TestCase):
     SERVICE_NAME = u'service.with_cache'
     FAKE_OPERATION_ID = u'service.with_cache.op_id'
 
@@ -433,7 +433,7 @@ _INCOMPLETE_INFO_TESTS = [
 KEYGETTER = attrgetter(u'key')
 
 
-class TestInfo(unittest2.TestCase):
+class TestInfo(unittest.TestCase):
 
     def test_should_construct_with_no_args(self):
         expect(check_request.Info()).not_to(be_none)
@@ -455,7 +455,7 @@ class TestInfo(unittest2.TestCase):
             expect(testf).to(raise_error(ValueError))
 
 
-class TestConvertResponse(unittest2.TestCase):
+class TestConvertResponse(unittest.TestCase):
     PROJECT_ID = u'test_convert_response'
 
     def test_should_be_ok_with_no_errors(self):

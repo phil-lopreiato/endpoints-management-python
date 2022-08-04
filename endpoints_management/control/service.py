@@ -28,17 +28,21 @@ tracked.
 
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import collections
 import logging
 import os
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 
-from apitools.base.py import encoding
 from enum import Enum
+from google.api import service_pb2
+from google.protobuf.json_format import Parse, ParseDict, MessageToDict
 
 from ..config import service_config
-from . import label_descriptor, metric_descriptor, path_regex, sm_messages
+from . import label_descriptor, metric_descriptor, path_regex
 
 
 _logger = logging.getLogger(__name__)
@@ -57,7 +61,7 @@ def _load_from_well_known_env():
         return None
     try:
         with open(config_file) as f:
-            return encoding.JsonToMessage(sm_messages.Service, f.read())
+            return encoding.JsonToMessage(service_pb2.Service, f.read())
     except ValueError:
         _logger.warn(u'did not load service; bad json config file %s', config_file)
         return None
@@ -92,11 +96,11 @@ _SIMPLE_CONFIG = """
     }
 }
 """
-_SIMPLE_CORE = encoding.JsonToMessage(sm_messages.Service, _SIMPLE_CONFIG)
+_SIMPLE_CORE = Parse(_SIMPLE_CONFIG, service_pb2.Service())
 
 
 def _load_simple():
-    return encoding.CopyProtoMessage(_SIMPLE_CORE)
+    return ParseDict(MessageToDict(_SIMPLE_CORE), service_pv2.Service())
 
 
 class Loaders(Enum):
@@ -134,7 +138,7 @@ class MethodRegistry(object):
           service (:class:`endpoints_management.gen.servicemanagement_v1_messages.Service`):
             a service instance
         """
-        if not isinstance(service, sm_messages.Service):
+        if not isinstance(service, service_pb2.Service):
             raise ValueError(u'service should be an instance of Service')
         if not service.name:
             raise ValueError(u'Bad service: the name is missing')
@@ -157,7 +161,7 @@ class MethodRegistry(object):
         if not tmi:
             _logger.debug(u'No methods for http method %s in %s',
                           http_method,
-                          self._templates_method_infos.keys())
+                          list(self._templates_method_infos.keys()))
             return None
         # need to remove url quoting of colons. this is the simplest way.
         path = path.replace('%3A', ':')
@@ -423,7 +427,7 @@ def extract_report_spec(
                                          metric_is_supported,
                                          labels_dict,
                                          label_is_supported)
-    return logs, metrics_dict.keys(), labels_dict.keys()
+    return logs, list(metrics_dict.keys()), list(labels_dict.keys())
 
 
 def _add_logging_destinations(destinations,

@@ -26,12 +26,15 @@
 
 from __future__ import absolute_import
 
+from builtins import str
+from builtins import range
 import base64
 from enum import Enum
-from . import sm_messages
+
+from google.api import label_pb2 as ga_label
 from .. import USER_AGENT, SERVICE_AGENT
 
-ValueType = sm_messages.LabelDescriptor.ValueTypeValueValuesEnum
+ValueType = ga_label.LabelDescriptor.ValueType
 
 
 class Kind(Enum):
@@ -151,7 +154,7 @@ def set_user_agent(name, dummy_info, labels):
 
 def set_consumer_project(name, info, labels):
     if info.consumer_project_number > 0:
-        labels[name] = unicode(info.consumer_project_number)
+        labels[name] = str(info.consumer_project_number)
 
 
 class KnownLabels(Enum):

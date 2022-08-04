@@ -15,13 +15,14 @@
 from __future__ import absolute_import
 
 import sys
-import unittest2
+import unittest
 from expects import expect, equal, raise_error
+from google.cloud import servicecontrol as sc_messages
 
-from endpoints_management.control import distribution, sc_messages
+from endpoints_management.control import distribution
 
 
-class TestCreateExponential(unittest2.TestCase):
+class TestCreateExponential(unittest.TestCase):
 
     def test_should_fail_if_num_finite_buckets_is_bad(self):
         testf = lambda: distribution.create_exponential(0, 1.1, 0.1)
@@ -38,10 +39,10 @@ class TestCreateExponential(unittest2.TestCase):
     def test_should_succeed_if_inputs_are_ok(self):
         num_finite_buckets = 1
         got = distribution.create_exponential(num_finite_buckets, 1.1, 0.1)
-        expect(len(got.bucketCounts)).to(equal(num_finite_buckets + 2))
+        expect(len(got.bucket_counts)).to(equal(num_finite_buckets + 2))
 
 
-class TestCreateLinear(unittest2.TestCase):
+class TestCreateLinear(unittest.TestCase):
 
     def test_should_fail_if_num_finite_buckets_is_bad(self):
         testf = lambda: distribution.create_linear(0, 1.1, 0.1)
@@ -54,10 +55,10 @@ class TestCreateLinear(unittest2.TestCase):
     def test_should_succeed_if_inputs_are_ok(self):
         num_finite_buckets = 1
         got = distribution.create_linear(num_finite_buckets, 0.1, 0.1)
-        expect(len(got.bucketCounts)).to(equal(num_finite_buckets + 2))
+        expect(len(got.bucket_counts)).to(equal(num_finite_buckets + 2))
 
 
-class TestCreateExplicit(unittest2.TestCase):
+class TestCreateExplicit(unittest.TestCase):
 
     def test_should_fail_if_there_are_matching_bounds(self):
         testf = lambda: distribution.create_explicit([0.0, 0.1, 0.1])
@@ -67,7 +68,7 @@ class TestCreateExplicit(unittest2.TestCase):
         want = [0.1, 0.2, 0.3]
         got = distribution.create_explicit([0.1, 0.2, 0.3])
         expect(got.explicitBuckets.bounds).to(equal(want))
-        expect(len(got.bucketCounts)).to(equal(len(want) + 1))
+        expect(len(got.bucket_counts)).to(equal(len(want) + 1))
 
     def test_should_succeed_if_input_bounds_are_unsorted(self):
         want = [0.1, 0.2, 0.3]
@@ -120,7 +121,7 @@ def _expect_stats_eq_direct_calc_from_samples(d, samples):
     expect(d.minimum).to(equal(min(samples)))
 
 
-class TestAddSample(unittest2.TestCase):
+class TestAddSample(unittest.TestCase):
     NOTHING_SET = sc_messages.Distribution()
 
     def test_should_fail_if_no_buckets_are_set(self):
@@ -134,7 +135,7 @@ class TestAddSample(unittest2.TestCase):
             samples = t[u'samples']
             for s in samples:
                 distribution.add_sample(s, d)
-            expect(d.bucketCounts).to(equal(t[u'want']))
+            expect(d.bucket_counts).to(equal(t[u'want']))
             _expect_stats_eq_direct_calc_from_samples(d, samples)
 
     def test_update_explict_buckets_ok(self):
@@ -147,7 +148,7 @@ class TestAddSample(unittest2.TestCase):
         self.expect_adds_test_samples_ok(_make_linear_dist)
 
 
-class TestMerge(unittest2.TestCase):
+class TestMerge(unittest.TestCase):
 
     def setUp(self):
         self.merge_triples = (
@@ -198,8 +199,8 @@ class TestMerge(unittest2.TestCase):
 
     def test_should_merge_bucket_counts_correctly(self):
         for d1, d2, _ in self.merge_triples:
-            d1_start = list(d1.bucketCounts)
-            d2_start = list(d2.bucketCounts)
+            d1_start = list(d1.bucket_counts)
+            d2_start = list(d2.bucket_counts)
             want = [x + y for (x,y) in zip(d1_start, d2_start)]
             distribution.merge(d1, d2)
-            expect(d2.bucketCounts).to(equal(want))
+            expect(d2.bucket_counts).to(equal(want))
