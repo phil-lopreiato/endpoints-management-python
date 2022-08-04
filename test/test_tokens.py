@@ -18,7 +18,6 @@ import time
 import unittest
 from unittest import mock
 
-from Crypto import PublicKey
 from test import token_utils
 
 from endpoints_management.auth import suppliers

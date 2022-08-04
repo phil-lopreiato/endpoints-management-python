@@ -21,9 +21,6 @@ import time
 import unittest
 from unittest import mock
 
-#from Crypto import PublicKey
-#from jwkest import ecc
-#from jwkest import jwk
 from test import token_utils
 
 from endpoints_management import auth
@@ -49,20 +46,20 @@ class IntegrationTest(unittest.TestCase):
         u"iss": _ISSUER,
         u"sub": u"subject-id"}
 
-    _ec_jwk = jwk.ECKey(use=u"sig").load_key(ecc.P256)
-    _rsa_key = jwk.RSAKey(use=u"sig").load_key(PublicKey.RSA.generate(1024))
+    #_ec_jwk = jwk.ECKey(use=u"sig").load_key(ecc.P256)
+    #_rsa_key = jwk.RSAKey(use=u"sig").load_key(PublicKey.RSA.generate(1024))
 
-    _ec_jwk.kid = u"ec-key-id"
-    _rsa_key.kid = u"rsa-key-id"
+    #_ec_jwk.kid = u"ec-key-id"
+    #_rsa_key.kid = u"rsa-key-id"
 
     _mock_timer = mock.MagicMock()
 
-    _jwks = jwk.KEYS()
-    _jwks._keys.append(_ec_jwk)
-    _jwks._keys.append(_rsa_key)
+    #_jwks = jwk.KEYS()
+    #_jwks._keys.append(_ec_jwk)
+    #_jwks._keys.append(_rsa_key)
 
-    _AUTH_TOKEN = token_utils.generate_auth_token(_JWT_CLAIMS, _jwks._keys,
-                                                  alg=u"RS256", kid=_rsa_key.kid)
+    #_AUTH_TOKEN = token_utils.generate_auth_token(_JWT_CLAIMS, _jwks._keys,
+    #                                              alg=u"RS256", kid=_rsa_key.kid)
 
 
     @classmethod

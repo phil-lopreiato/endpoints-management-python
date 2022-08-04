@@ -14,25 +14,25 @@
 
 from __future__ import absolute_import
 
+import http.client as httplib
 import datetime
-import httplib
 import unittest
 from operator import attrgetter
 from expects import be_none, equal, expect, raise_error
 
-from apitools.base.py import encoding
+from google.cloud import servicecontrol as sc_messages
+from google.protobuf import timestamp_pb2
 
 from endpoints_management.control import caches, label_descriptor, timestamp
-from endpoints_management.control import (check_request, metric_value,
-                                          sc_messages)
+from endpoints_management.control import (check_request, metric_value)
 
 
 class TestSign(unittest.TestCase):
 
     def setUp(self):
         op = sc_messages.Operation(
-            consumerId=_TEST_CONSUMER_ID,
-            operationName=_TEST_OP_NAME
+            consumer_id=_TEST_CONSUMER_ID,
+            operation_name=_TEST_OP_NAME
         )
         self.test_check_request = sc_messages.CheckRequest(operation=op)
         self.test_op = op
@@ -48,13 +48,13 @@ class TestSign(unittest.TestCase):
         expect(testf).to(raise_error(ValueError))
 
     def test_should_fail_if_operation_has_no_operation_name(self):
-        op = sc_messages.Operation(consumerId=_TEST_CONSUMER_ID)
+        op = sc_messages.Operation(consumer_id=_TEST_CONSUMER_ID)
         testf = lambda: check_request.sign(
             sc_messages.CheckRequest(operation=op))
         expect(testf).to(raise_error(ValueError))
 
     def test_should_fail_if_operation_has_no_consumer_id(self):
-        op = sc_messages.Operation(operationName=_TEST_OP_NAME)
+        op = sc_messages.Operation(operation_name=_TEST_OP_NAME)
         testf = lambda: check_request.sign(
             sc_messages.CheckRequest(operation=op))
         expect(testf).to(raise_error(ValueError))
@@ -64,24 +64,24 @@ class TestSign(unittest.TestCase):
 
     def test_should_change_signature_when_labels_are_added(self):
         without_labels = check_request.sign(self.test_check_request)
-        self.test_op.labels = encoding.PyValueToMessage(
-            sc_messages.Operation.LabelsValue, {
-                u'key1': u'value1',
-                u'key2': u'value2'})
+        self.test_op.labels = {
+            u'key1': u'value1',
+            u'key2': u'value2'
+        },
         with_labels = check_request.sign(self.test_check_request)
         expect(with_labels).not_to(equal(without_labels))
 
     def test_should_change_signature_when_metric_values_are_added(self):
         without_mvs = check_request.sign(self.test_check_request)
-        self.test_op.metricValueSets = [
+        self.test_op.metric_value_sets = [
             sc_messages.MetricValueSet(
-                metricName=u'a_float',
-                metricValues=[
+                metric_name=u'a_float',
+                metric_values=[
                     metric_value.create(
                         labels={
                             u'key1': u'value1',
                             u'key2': u'value2'},
-                        doubleValue=1.1,
+                        double_value=1.1,
                     ),
                 ]
             )
@@ -132,7 +132,7 @@ class TestAggregatorCheck(unittest.TestCase):
     def test_should_return_none_initially_as_req_is_not_cached(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg = self.agg
         expect(agg.check(req)).to(be_none)
 
@@ -150,7 +150,7 @@ class TestAggregatorThatCannotCache(unittest.TestCase):
     def test_should_not_cache_responses(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg = self.agg
         expect(agg.check(req)).to(be_none)
         agg.add_response(req, fake_response)
@@ -185,7 +185,7 @@ class TestCachingAggregator(unittest.TestCase):
     def test_should_cache_responses(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg = self.agg
         expect(agg.check(req)).to(be_none)
         agg.add_response(req, fake_response)
@@ -194,9 +194,9 @@ class TestCachingAggregator(unittest.TestCase):
     def test_should_not_cache_requests_with_important_operations(self):
         req = _make_test_request(
             self.SERVICE_NAME,
-            importance=sc_messages.Operation.ImportanceValueValuesEnum.HIGH)
+            importance=sc_messages.Operation.Importance.HIGH)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg = self.agg
         expect(agg.check(req)).to(be_none)
         agg.add_response(req, fake_response)
@@ -205,7 +205,7 @@ class TestCachingAggregator(unittest.TestCase):
     def test_signals_a_resend_on_1st_call_after_flush_interval(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg = self.agg
         expect(agg.check(req)).to(be_none)
         agg.add_response(req, fake_response)
@@ -230,7 +230,7 @@ class TestCachingAggregator(unittest.TestCase):
         req = _make_test_request(self.SERVICE_NAME)
         failure_code = sc_messages.CheckError.CodeValueValuesEnum.NOT_FOUND
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID, checkErrors=[
+            operation_id=self.FAKE_OPERATION_ID, checkErrors=[
                 sc_messages.CheckError(code=failure_code)
             ])
         agg = self.agg
@@ -255,7 +255,7 @@ class TestCachingAggregator(unittest.TestCase):
     def test_should_extend_expiration_on_receipt_of_a_response(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID
+            operation_id=self.FAKE_OPERATION_ID
         )
         agg = self.agg
         expect(agg.check(req)).to(be_none)
@@ -283,7 +283,7 @@ class TestCachingAggregator(unittest.TestCase):
     def test_does_not_flush_request_that_has_not_been_updated(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID
+            operation_id=self.FAKE_OPERATION_ID
         )
         agg = self.agg
         expect(agg.check(req)).to(be_none)
@@ -299,7 +299,7 @@ class TestCachingAggregator(unittest.TestCase):
     def test_does_flush_requests_that_have_been_updated(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID
+            operation_id=self.FAKE_OPERATION_ID
         )
         agg = self.agg
         expect(agg.check(req)).to(be_none)
@@ -314,7 +314,7 @@ class TestCachingAggregator(unittest.TestCase):
     def test_should_clear_requests(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.CheckResponse(
-            operationId=self.FAKE_OPERATION_ID
+            operation_id=self.FAKE_OPERATION_ID
         )
         agg = self.agg
         expect(agg.check(req)).to(be_none)
@@ -331,10 +331,10 @@ _TEST_OP_NAME = u'testOperationName'
 
 def _make_test_request(service_name, importance=None):
     if importance is None:
-        importance = sc_messages.Operation.ImportanceValueValuesEnum.LOW
+        importance = sc_messages.Operation.Importance.LOW
     op = sc_messages.Operation(
-        consumerId=_TEST_CONSUMER_ID,
-        operationName=_TEST_OP_NAME,
+        consumer_id=_TEST_CONSUMER_ID,
+        operation_name=_TEST_OP_NAME,
         importance=importance
     )
     check_request = sc_messages.CheckRequest(operation=op)
@@ -345,7 +345,7 @@ def _make_test_request(service_name, importance=None):
 
 _WANTED_USER_AGENT = label_descriptor.USER_AGENT
 _WANTED_SERVICE_AGENT = label_descriptor.SERVICE_AGENT
-_START_OF_EPOCH = timestamp.to_rfc3339(datetime.datetime(1970, 1, 1, 0, 0, 0))
+_START_OF_EPOCH = timestamp_pb2.Timestamp().FromJsonString(timestamp.to_rfc3339(datetime.datetime(1970, 1, 1, 0, 0, 0)))
 _TEST_SERVICE_NAME = u'a_service_name'
 _INFO_TESTS = [
     (check_request.Info(
@@ -354,18 +354,17 @@ _INFO_TESTS = [
         referer=u'a_referer',
         service_name=_TEST_SERVICE_NAME),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         labels = encoding.PyValueToMessage(
-             sc_messages.Operation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/user_agent': _WANTED_USER_AGENT,
-                 u'servicecontrol.googleapis.com/referer': u'a_referer',
-                 u'servicecontrol.googleapis.com/service_agent':
-                     _WANTED_SERVICE_AGENT,
-             }),
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH,
-         endTime=_START_OF_EPOCH)),
+         importance=sc_messages.Operation.Importance.LOW,
+         labels = {
+             u'servicecontrol.googleapis.com/user_agent': _WANTED_USER_AGENT,
+             u'servicecontrol.googleapis.com/referer': u'a_referer',
+             u'servicecontrol.googleapis.com/service_agent':
+                 _WANTED_SERVICE_AGENT,
+         },
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_START_OF_EPOCH,
+         end_time=_START_OF_EPOCH)),
     (check_request.Info(
         android_cert_fingerprint=u'an_android_cert_fingerprint',
         android_package_name=u'an_android_package_name',
@@ -377,22 +376,21 @@ _INFO_TESTS = [
         referer=u'a_referer',
         service_name=_TEST_SERVICE_NAME),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         consumerId=u'api_key:an_api_key',
-         labels = encoding.PyValueToMessage(
-             sc_messages.Operation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/android_cert_fingerprint': u'an_android_cert_fingerprint',
-                 u'servicecontrol.googleapis.com/android_package_name': u'an_android_package_name',
-                 u'servicecontrol.googleapis.com/ios_bundle_id': u'an_ios_bundle_id',
-                 u'servicecontrol.googleapis.com/user_agent': _WANTED_USER_AGENT,
-                 u'servicecontrol.googleapis.com/referer': u'a_referer',
-                 u'servicecontrol.googleapis.com/service_agent':
-                     _WANTED_SERVICE_AGENT,
-             }),
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH,
-         endTime=_START_OF_EPOCH)),
+         importance=sc_messages.Operation.Importance.LOW,
+         consumer_id=u'api_key:an_api_key',
+         labels = {
+             u'servicecontrol.googleapis.com/android_cert_fingerprint': u'an_android_cert_fingerprint',
+             u'servicecontrol.googleapis.com/android_package_name': u'an_android_package_name',
+             u'servicecontrol.googleapis.com/ios_bundle_id': u'an_ios_bundle_id',
+             u'servicecontrol.googleapis.com/user_agent': _WANTED_USER_AGENT,
+             u'servicecontrol.googleapis.com/referer': u'a_referer',
+             u'servicecontrol.googleapis.com/service_agent':
+                 _WANTED_SERVICE_AGENT,
+        },
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_START_OF_EPOCH,
+         end_time=_START_OF_EPOCH)),
     (check_request.Info(
         api_key=u'an_api_key',
         api_key_valid=False,
@@ -403,20 +401,19 @@ _INFO_TESTS = [
         referer=u'a_referer',
         service_name=_TEST_SERVICE_NAME),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         consumerId=u'project:project_id',
-         labels = encoding.PyValueToMessage(
-             sc_messages.Operation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/caller_ip': u'127.0.0.1',
-                 u'servicecontrol.googleapis.com/user_agent': _WANTED_USER_AGENT,
-                 u'servicecontrol.googleapis.com/referer': u'a_referer',
-                 u'servicecontrol.googleapis.com/service_agent':
-                     _WANTED_SERVICE_AGENT,
-             }),
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH,
-         endTime=_START_OF_EPOCH)),
+         importance=sc_messages.Operation.Importance.LOW,
+         consumer_id=u'project:project_id',
+         labels = {
+             u'servicecontrol.googleapis.com/caller_ip': u'127.0.0.1',
+             u'servicecontrol.googleapis.com/user_agent': _WANTED_USER_AGENT,
+             u'servicecontrol.googleapis.com/referer': u'a_referer',
+             u'servicecontrol.googleapis.com/service_agent':
+                 _WANTED_SERVICE_AGENT,
+         },
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_START_OF_EPOCH,
+         end_time=_START_OF_EPOCH)),
 ]
 _INCOMPLETE_INFO_TESTS = [
     check_request.Info(
