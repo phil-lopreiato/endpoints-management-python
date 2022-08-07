@@ -18,6 +18,7 @@ import datetime
 import unittest
 from expects import be_none, be_true, expect, equal, raise_error
 
+from google.api import metric_pb2
 from google.cloud import servicecontrol as sc_messages
 from google.cloud import servicemanagement as sm_messages
 
@@ -64,18 +65,18 @@ class KnownMetricsBase(object):
     def _wanted_operation(self):
         op = self._base_operation()
         if self.WANTED_ADDED_METRICS:
-            op.metricValueSets.append(self.WANTED_ADDED_METRICS)
+            op.metric_value_sets.append(self.WANTED_ADDED_METRICS)
         return op
 
     def _matching_descriptor(self):
-        return sm_messages.MetricDescriptor(
+        return metric_pb2.MetricDescriptor(
             name=self.SUBJECT.metric_name,
-            metricKind=self.SUBJECT.kind,
-            valueType=self.SUBJECT.value_type)
+            metric_kind=self.SUBJECT.kind,
+            value_type=self.SUBJECT.value_type)
 
     def _not_matched(self):
         d = self._matching_descriptor()
-        d.metricKind = MetricKind.METRIC_KIND_UNSPECIFIED
+        d.metric_kind = MetricKind.METRIC_KIND_UNSPECIFIED
         return d
 
     def test_should_be_supported(self):

@@ -34,13 +34,13 @@ from . import distribution, metric_value, MetricKind, ValueType
 
 
 def _add_metric_value(name, value, an_op):
-    an_op.metricValueSets.append(
-        sc_messages.MetricValueSet(metricName=name, metricValues=[value]))
+    an_op.metric_value_sets.append(
+        sc_messages.MetricValueSet(metric_name=name, metric_values=[value]))
 
 
 def _add_int64_metric_value(name, value, an_op):
     _add_metric_value(
-        name, metric_value.create(int64Value=value), an_op)
+        name, metric_value.create(int64_value=value), an_op)
 
 
 def _set_int64_metric_to_constant_1(name, dummy_info, op):
@@ -56,7 +56,7 @@ def _add_distribution_metric_value(name, value, an_op, distribution_args):
     d = distribution.create_exponential(*distribution_args)
     distribution.add_sample(value, d)
     _add_metric_value(
-        name, metric_value.create(distributionValue=d), an_op)
+        name, metric_value.create(distribution_value=d), an_op)
 
 
 _SIZE_DISTRIBUTION_ARGS = (8, 10.0, 1.0)
@@ -286,8 +286,8 @@ class KnownMetrics(Enum):
 
         """
         return (self.metric_name == desc.name and
-                self.kind == desc.metricKind and
-                self.value_type == desc.valueType)
+                self.kind == desc.metric_kind and
+                self.value_type == desc.value_type)
 
     def do_operation_update(self, info, an_op):
         """Updates an operation using the assigned update_op_func
