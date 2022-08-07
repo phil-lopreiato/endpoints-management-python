@@ -67,7 +67,8 @@ class TestSign(unittest.TestCase):
         self.test_op.labels = {
             u'key1': u'value1',
             u'key2': u'value2'
-        },
+        }
+        self.test_check_request.operation = self.test_op
         with_labels = check_request.sign(self.test_check_request)
         expect(with_labels).not_to(equal(without_labels))
 
@@ -86,14 +87,9 @@ class TestSign(unittest.TestCase):
                 ]
             )
         ]
+        self.test_check_request.operation = self.test_op
         with_mvs = check_request.sign(self.test_check_request)
         expect(with_mvs).not_to(equal(without_mvs))
-
-    def test_should_change_signature_quota_properties_are_specified(self):
-        without_qprops = check_request.sign(self.test_check_request)
-        self.test_op.quotaProperties = sc_messages.QuotaProperties()
-        with_qprops = check_request.sign(self.test_check_request)
-        expect(with_qprops).not_to(equal(without_qprops))
 
 
 class TestAggregatorCheck(unittest.TestCase):
@@ -116,16 +112,10 @@ class TestAggregatorCheck(unittest.TestCase):
         testf = lambda: self.agg.check(req)
         expect(testf).to(raise_error(ValueError))
 
-    def test_should_fail_if_check_request_is_missing(self):
-        req = sc_messages.ServicecontrolServicesCheckRequest(
-            serviceName=self.SERVICE_NAME)
-        testf = lambda: self.agg.check(req)
-        expect(testf).to(raise_error(ValueError))
-
     def test_should_fail_if_operation_is_missing(self):
-        req = sc_messages.ServicecontrolServicesCheckRequest(
-            serviceName=self.SERVICE_NAME,
-            checkRequest=sc_messages.CheckRequest())
+        req = sc_messages.CheckRequest(
+            service_name=self.SERVICE_NAME,
+            operation=None)
         testf = lambda: self.agg.check(req)
         expect(testf).to(raise_error(ValueError))
 
@@ -228,9 +218,9 @@ class TestCachingAggregator(unittest.TestCase):
 
     def test_signals_resend_on_1st_call_after_flush_interval_with_errors(self):
         req = _make_test_request(self.SERVICE_NAME)
-        failure_code = sc_messages.CheckError.CodeValueValuesEnum.NOT_FOUND
+        failure_code = sc_messages.CheckError.Code.NOT_FOUND
         fake_response = sc_messages.CheckResponse(
-            operation_id=self.FAKE_OPERATION_ID, checkErrors=[
+            operation_id=self.FAKE_OPERATION_ID, check_errors=[
                 sc_messages.CheckError(code=failure_code)
             ])
         agg = self.agg
@@ -304,6 +294,7 @@ class TestCachingAggregator(unittest.TestCase):
         agg = self.agg
         expect(agg.check(req)).to(be_none)
         agg.add_response(req, fake_response)
+
         expect(agg.check(req)).to(equal(fake_response))
         self.timer.tick() # now past the flush_interval
         expect(len(agg.flush())).to(equal(0)) # nothing expired
@@ -337,10 +328,8 @@ def _make_test_request(service_name, importance=None):
         operation_name=_TEST_OP_NAME,
         importance=importance
     )
-    check_request = sc_messages.CheckRequest(operation=op)
-    return sc_messages.ServicecontrolServicesCheckRequest(
-        serviceName=service_name,
-        checkRequest=check_request)
+    check_request = sc_messages.CheckRequest(service_name=service_name, operation=op)
+    return check_request
 
 
 _WANTED_USER_AGENT = label_descriptor.USER_AGENT
@@ -439,11 +428,8 @@ class TestInfo(unittest.TestCase):
         timer = _DateTimeTimer()
         for info, want in _INFO_TESTS:
             got = info.as_check_request(timer=timer)
-            # These additional properties have no well-defined order, so sort them.
-            got.checkRequest.operation.labels.additionalProperties.sort(key=KEYGETTER)
-            want.labels.additionalProperties.sort(key=KEYGETTER)
-            expect(got.checkRequest.operation).to(equal(want))
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
+            expect(got.operation).to(equal(want))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
 
     def test_should_fail_as_check_request_on_incomplete_info(self):
         timer = _DateTimeTimer()
@@ -463,9 +449,9 @@ class TestConvertResponse(unittest.TestCase):
 
     def test_should_include_project_id_in_error_text_when_needed(self):
         resp = sc_messages.CheckResponse(
-            checkErrors = [
+            check_errors=[
                 sc_messages.CheckError(
-                    code=sc_messages.CheckError.CodeValueValuesEnum.PROJECT_DELETED)
+                    code=sc_messages.CheckError.Code.PROJECT_DELETED)
             ]
         )
         code, got, _ = check_request.convert_response(resp, self.PROJECT_ID)
@@ -476,9 +462,9 @@ class TestConvertResponse(unittest.TestCase):
     def test_should_include_detail_in_error_text_when_needed(self):
         detail = u'details, details, details'
         resp = sc_messages.CheckResponse(
-            checkErrors = [
+            check_errors=[
                 sc_messages.CheckError(
-                    code=sc_messages.CheckError.CodeValueValuesEnum.IP_ADDRESS_BLOCKED,
+                    code=sc_messages.CheckError.Code.IP_ADDRESS_BLOCKED,
                     detail=detail)
             ]
         )

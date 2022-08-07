@@ -36,8 +36,8 @@ import http.client
 import logging
 from datetime import datetime
 
-from apitools.base.py import encoding
 import google.cloud.servicecontrol as sc_messages
+from google.protobuf.json_format import MessageToDict
 
 from . import (caches, label_descriptor, metric_value, operation,
                signing)
@@ -137,11 +137,11 @@ def convert_response(check_response, project_id):
     Returns:
        tuple(code, message, bool)
     """
-    if not check_response or not check_response.checkErrors:
+    if not check_response or not check_response.check_errors:
         return _IS_OK
 
     # only check the first error for now, as per ESP
-    theError = check_response.checkErrors[0]
+    theError = check_response.check_errors[0]
     error_tuple = _CHECK_ERROR_CONVERSION.get(theError.code, _IS_UNKNOWN)
     if error_tuple[1].find(u'{') == -1:  # no replacements needed:
         return error_tuple
@@ -163,27 +163,20 @@ def sign(check_request):
     if not isinstance(check_request, sc_messages.CheckRequest):
         raise ValueError(u'Invalid request')
     op = check_request.operation
-    if op is None or op.operationName is None or op.consumerId is None:
+    if not op or not op.operation_name or not op.consumer_id:
         logging.error(u'Bad %s: not initialized => not signed', check_request)
         raise ValueError(u'check request must be initialized with an operation')
     md5 = hashlib.md5()
-    md5.update(op.operationName.encode('utf-8'))
+    md5.update(op.operation_name.encode('utf-8'))
     md5.update(b'\x00')
-    md5.update(op.consumerId.encode('utf-8'))
+    md5.update(op.consumer_id.encode('utf-8'))
     if op.labels:
-        signing.add_dict_to_hash(md5, encoding.MessageToPyValue(op.labels))
-    for value_set in op.metricValueSets:
+        signing.add_dict_to_hash(md5, op.labels)
+    for value_set in op.metric_value_sets:
         md5.update(b'\x00')
-        md5.update(value_set.metricName.encode('utf-8'))
-        for mv in value_set.metricValues:
+        md5.update(value_set.metric_name.encode('utf-8'))
+        for mv in value_set.metric_values:
             metric_value.update_hash(md5, mv)
-
-    md5.update(b'\x00')
-    if op.quotaProperties:
-        # N.B: this differs form cxx implementation, which serializes the
-        # protobuf. This should be OK as the exact hash used does not need to
-        # match across implementations.
-        md5.update(repr(op.quotaProperties).encode('utf-8'))
 
     md5.update(b'\x00')
     return md5.digest()
@@ -247,12 +240,12 @@ class Info(collections.namedtuple(u'Info',
         labels[_KNOWN_LABELS.SCC_SERVICE_AGENT.label_name] = SERVICE_AGENT
         labels[_KNOWN_LABELS.SCC_USER_AGENT.label_name] = USER_AGENT
 
-        op.labels = encoding.PyValueToMessage(
-            sc_messages.Operation.LabelsValue, labels)
-        check_request = sc_messages.CheckRequest(operation=op)
-        return sc_messages.ServicecontrolServicesCheckRequest(
-            serviceName=self.service_name,
-            checkRequest=check_request)
+        op.labels = labels
+        check_request = sc_messages.CheckRequest(
+            service_name=self.service_name,
+            operation=op,
+        )
+        return check_request
 
 
 class Aggregator(object):
@@ -380,7 +373,7 @@ class Aggregator(object):
         """
         if self._cache is None:
             return
-        signature = sign(req.checkRequest)
+        signature = sign(req)
         with self._cache as c:
             now = self._timer()
             quota_scale = 0  # WIP
@@ -438,21 +431,18 @@ class Aggregator(object):
         """
         if self._cache is None:
             return None  # no cache, send request now
-        if not isinstance(req, sc_messages.ServicecontrolServicesCheckRequest):
+        if not isinstance(req, sc_messages.CheckRequest):
             raise ValueError(u'Invalid request')
-        if req.serviceName != self.service_name:
+        if req.service_name != self.service_name:
             _logger.error(u'bad check(): service_name %s does not match ours %s',
-                          req.serviceName, self.service_name)
+                          req.service_name, self.service_name)
             raise ValueError(u'Service name mismatch')
-        check_request = req.checkRequest
-        if check_request is None:
-            _logger.error(u'bad check(): no check_request in %s', req)
-            raise ValueError(u'Expected operation not set')
+        check_request = req
         op = check_request.operation
         if op is None:
             _logger.error(u'bad check(): no operation in %s', req)
             raise ValueError(u'Expected operation not set')
-        if op.importance != sc_messages.Operation.ImportanceValueValuesEnum.LOW:
+        if op.importance != sc_messages.Operation.Importance.LOW:
             return None  # op is important, send request now
 
         signature = sign(check_request)
@@ -466,7 +456,7 @@ class Aggregator(object):
 
     def _handle_cached_response(self, req, item):
         with self._cache:  # defensive, this re-entrant lock should be held
-            if len(item.response.checkErrors) > 0:
+            if len(item.response.check_errors) > 0:
                 if self._is_current(item):
                     return item.response
 
@@ -517,9 +507,9 @@ class CachedItem(object):
         agg = self._op_aggregator
         if agg is None:
             self._op_aggregator = operation.Aggregator(
-                req.checkRequest.operation, kinds)
+                req.operation, kinds)
         else:
-            agg.add(req.checkRequest.operation)
+            agg.add(req.operation)
 
     def extract_request(self):
         if self._op_aggregator is None:
@@ -528,6 +518,4 @@ class CachedItem(object):
         op = self._op_aggregator.as_operation()
         self._op_aggregator = None
         check_request = sc_messages.CheckRequest(operation=op)
-        return sc_messages.ServicecontrolServicesCheckRequest(
-            serviceName=self._service_name,
-            checkRequest=check_request)
+        return check_request

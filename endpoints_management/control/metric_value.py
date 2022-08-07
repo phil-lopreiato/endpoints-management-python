@@ -90,11 +90,13 @@ def update_hash(a_hash, mv):
 
     """
     if mv.labels:
-        signing.add_dict_to_hash(a_hash, MessageToDict(mv.labels))
-    money_value = mv.get_assigned_value(u'moneyValue')
-    if money_value is not None:
+        signing.add_dict_to_hash(a_hash, mv.labels)
+    """
+    money_value doesn't exist
+    money_value = mv.money_value
         a_hash.update(b'\x00')
         a_hash.update(money_value.currencyCode.encode('utf-8'))
+    """
 
 
 def sign(mv):

@@ -30,8 +30,8 @@ import collections
 import logging
 from datetime import datetime
 
-from apitools.base.py import encoding
 import google.cloud.servicecontrol as sc_messages
+from google.protobuf import timestamp_pb2
 
 from . import metric_value, timestamp, MetricKind
 
@@ -114,18 +114,19 @@ class Info(
 
         """
         now = timer()
+        now_time_pb = timestamp_pb2.Timestamp().FromJsonString(timestamp.to_rfc3339(now))
         op = sc_messages.Operation(
-            endTime=timestamp.to_rfc3339(now),
-            startTime=timestamp.to_rfc3339(now),
-            importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW)
+            end_time=now_time_pb,
+            start_time=now_time_pb,
+            importance=sc_messages.Operation.Importance.LOW)
         if self.operation_id:
-            op.operationId = self.operation_id
+            op.operation_id= self.operation_id
         if self.operation_name:
-            op.operationName = self.operation_name
+            op.operation_name = self.operation_name
         if self.api_key and self.api_key_valid:
-            op.consumerId = u'api_key:' + self.api_key
+            op.consumer_id = u'api_key:' + self.api_key
         elif self.consumer_project_id:
-            op.consumerId = u'project:' + self.consumer_project_id
+            op.consumer_id = u'project:' + self.consumer_project_id
         return op
 
 
@@ -156,9 +157,10 @@ class Aggregator(object):
             kinds = {}
         self._kinds = kinds
         self._metric_values_by_name_then_sign = collections.defaultdict(dict)
-        our_op = encoding.CopyProtoMessage(initial_op)
+        our_op = sc_messages.Operation()
+        sc_messages.Operation.copy_from(our_op, initial_op)
         self._merge_metric_values(our_op)
-        our_op.metricValueSets = []
+        our_op.metric_value_sets = []
         self._op = our_op
 
     def as_operation(self):
@@ -167,11 +169,12 @@ class Aggregator(object):
         Returns:
            :class:`endpoints_management.gen.servicecontrol_v1_messages.Operation`
         """
-        result = encoding.CopyProtoMessage(self._op)
+        result = sc_messages.Operation()
+        sc_messages.Operation.copy_from(result, self._op)
         names = sorted(self._metric_values_by_name_then_sign.keys())
         for name in names:
             mvs = self._metric_values_by_name_then_sign[name]
-            result.metricValueSets.append(
+            result.metric_value_sets.append(
                 sc_messages.MetricValueSet(
                     metricName=name, metricValues=list(mvs.values())))
         return result
@@ -189,16 +192,16 @@ class Aggregator(object):
              an operation merge into this one
 
         """
-        self._op.logEntries.extend(other_op.logEntries)
+        self._op.log_entries.extend(other_op.log_entries)
         self._merge_timestamps(other_op)
         self._merge_metric_values(other_op)
 
     def _merge_metric_values(self, other_op):
-        for value_set in other_op.metricValueSets:
-            name = value_set.metricName
+        for value_set in other_op.metric_value_sets:
+            name = value_set.metric_namee
             kind = self._kinds.get(name, self.DEFAULT_KIND)
             by_signature = self._metric_values_by_name_then_sign[name]
-            for mv in value_set.metricValues:
+            for mv in value_set.metric_values:
                 signature = metric_value.sign(mv)
                 prior = by_signature.get(signature)
                 if prior is not None:
@@ -207,12 +210,12 @@ class Aggregator(object):
 
     def _merge_timestamps(self, other_op):
         # Update the start time and end time in self._op  as needed
-        if (other_op.startTime and
-            (self._op.startTime is None or
-             timestamp.compare(other_op.startTime, self._op.startTime) == -1)):
-            self._op.startTime = other_op.startTime
+        if (other_op.start_time and
+            (self._op.start_time is None or
+             timestamp.compare(other_op.start_time, self._op.startTime) == -1)):
+            self._op.start_time = other_op.startTime
 
-        if (other_op.endTime and
-            (self._op.endTime is None or timestamp.compare(
-                self._op.endTime, other_op.endTime) == -1)):
-            self._op.endTime = other_op.endTime
+        if (other_op.end_time and
+            (self._op.end_time is None or timestamp.compare(
+                self._op.end_time, other_op.end_time) == -1)):
+            self._op.end_time = other_op.end_time

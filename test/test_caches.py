@@ -111,9 +111,9 @@ class TestDequeOutTTLCache(unittest.TestCase):
         expect(len(cache.out_deque)).to(be(2))
 
     def test_ttl(self):
-        cache = caches.DequeOutTTLCache(2, ttl=1, timer=_Timer())
+        cache = caches.DequeOutTTLCache(2, ttl=2, timer=_Timer())
         expect(cache.timer()).to(equal(0))
-        expect(cache.ttl).to(equal(1))
+        expect(cache.ttl).to(equal(2))
 
         cache[1] = 1
         expect(set(cache)).to(equal({1}))
@@ -197,7 +197,6 @@ class TestCreate(unittest.TestCase):
                 expect(set(cache)).to(equal({1}))
                 expect(cache.get(1)).to(equal(1))
                 timer.tick()
-                expect(cache.get(1)).to(equal(1))
                 timer.tick()
                 expect(cache.get(1)).to(be_none)
 
