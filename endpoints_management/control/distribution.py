@@ -92,7 +92,7 @@ def create_linear(num_finite_buckets, width, offset):
     return sc_messages.Distribution(
         bucket_counts=[0] * (num_finite_buckets + 2),
         linear_buckets=sc_messages.Distribution.LinearBuckets(
-            num_finite_bucketes=num_finite_buckets,
+            num_finite_buckets=num_finite_buckets,
             width=width,
             offset=offset))
 
@@ -188,7 +188,7 @@ def merge(prior, latest):
     latest.mean = ((old_count * old_mean + prior.count * prior.mean) /
                    latest.count)
     latest.sum_of_squared_deviation = (
-        old_summed_variance + prior.sum_of_sqaured_deviation +
+        old_summed_variance + prior.sum_of_squared_deviation +
         old_count * (latest.mean - old_mean) ** 2 +
         prior.count * (latest.mean - prior.mean) ** 2)
     for i, (x, y) in enumerate(zip(prior.bucket_counts, bucket_counts)):
@@ -214,7 +214,7 @@ _DISTRIBUTION_ONEOF_FIELDS = (
 def _detect_bucket_option(distribution):
     for f in _DISTRIBUTION_ONEOF_FIELDS:
         value = getattr(distribution, f)
-        if value is not None:
+        if value:
             return f, value
     return None, None
 
@@ -309,7 +309,7 @@ def _update_exponential_bucket_count(a_float, dist):
       ValueError: if `dist` does not already have exponential buckets defined
       ValueError: if there are not enough bucket count fields in `dist`
     """
-    buckets = dist.exponentialBuckets
+    buckets = dist.exponential_buckets
     if buckets is None:
         raise ValueError(_BAD_UNSET_BUCKETS % (u'exponential buckets'))
     bucket_counts = dist.bucket_counts
@@ -317,7 +317,7 @@ def _update_exponential_bucket_count(a_float, dist):
     if len(bucket_counts) < num_finite_buckets + 2:
         raise ValueError(_BAD_LOW_BUCKET_COUNT)
     scale = buckets.scale
-    factor = buckets.growthFactor
+    factor = buckets.growth_factor
     if (a_float <= scale):
         index = 0
     else:
@@ -373,7 +373,7 @@ def _update_explicit_bucket_count(a_float, dist):
       ValueError: if `dist` does not already have explict buckets defined
       ValueError: if there are not enough bucket count fields in `dist`
     """
-    buckets = dist.explicitBuckets
+    buckets = dist.explicit_buckets
     if buckets is None:
         raise ValueError(_BAD_UNSET_BUCKETS % (u'explicit buckets'))
     bucket_counts = dist.bucket_counts

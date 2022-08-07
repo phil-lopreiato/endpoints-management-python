@@ -67,13 +67,13 @@ class TestCreateExplicit(unittest.TestCase):
     def test_should_succeed_if_inputs_are_ok(self):
         want = [0.1, 0.2, 0.3]
         got = distribution.create_explicit([0.1, 0.2, 0.3])
-        expect(got.explicitBuckets.bounds).to(equal(want))
+        expect(got.explicit_buckets.bounds).to(equal(want))
         expect(len(got.bucket_counts)).to(equal(len(want) + 1))
 
     def test_should_succeed_if_input_bounds_are_unsorted(self):
         want = [0.1, 0.2, 0.3]
         got = distribution.create_explicit([0.3, 0.1, 0.2])
-        expect(got.explicitBuckets.bounds).to(equal(want))
+        expect(got.explicit_buckets.bounds).to(equal(want))
 
 
 def _make_explicit_dist():
