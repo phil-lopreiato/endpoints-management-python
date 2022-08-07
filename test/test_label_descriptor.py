@@ -17,8 +17,10 @@ from __future__ import absolute_import
 import base64
 import datetime
 import unittest
+
 from expects import be_none, be_true, expect, equal, raise_error
-from google.cloud import servicemanagement as sm_messages
+from google.api import label_pb2 as ga_label
+from google.cloud import servicecontrol as sm_messages
 
 from endpoints_management.control import (label_descriptor, report_request)
 
@@ -36,16 +38,16 @@ class KnownLabelsBase(object):
     WANTED_LABEL_DICT = {}
 
     def _matching_descriptor(self, hide_default=False):
-        res = sm_messages.LabelDescriptor(
+        res = ga_label.LabelDescriptor(
             key=self.SUBJECT.label_name,
-            valueType=self.SUBJECT.value_type)
-        if res.valueType == ValueType.STRING and hide_default:
-            res.valueType = None
+            value_type=self.SUBJECT.value_type)
+        if res.value_type == ValueType.STRING and hide_default:
+            res.value_type = 0
         return res
 
     def _not_matched(self):
         d = self._matching_descriptor()
-        d.valueType = ValueType.INT64  # no known labels have this type
+        d.value_type = ValueType.INT64  # no known labels have this type
         return d
 
     def test_should_be_supported(self):

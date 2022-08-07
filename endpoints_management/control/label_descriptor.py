@@ -260,7 +260,7 @@ class KnownLabels(Enum):
            `True` if desc is supported, otherwise `False`
 
         """
-        desc_value_type = desc.valueType or ValueType.STRING  # default not parsed
+        desc_value_type = desc.value_type or ValueType.STRING  # default not parsed
         return (self.label_name == desc.key and
                 self.value_type == desc_value_type)
 
