@@ -369,7 +369,7 @@ class Info(
 
         # Populate metrics and labels if they can be associated with a
         # method/operation
-        if op.operationId and op.operationName:
+        if op.operation_id and op.operation_name:
             labels = {}
             for known_label in rules.labels:
                 known_label.do_labels_update(self, labels)
@@ -383,19 +383,17 @@ class Info(
             labels[_KNOWN_LABELS.SCC_USER_AGENT.label_name] = USER_AGENT
 
             if labels:
-                op.labels = encoding.PyValueToMessage(
-                    sc_messages.Operation.LabelsValue,
-                    labels)
+                op.labels = labels
             for known_metric in rules.metrics:
                 known_metric.do_operation_update(self, op)
 
         # Populate the log entries
         now = timer()
-        op.logEntries = [self._as_log_entry(l, now) for l in rules.logs]
+        op.log_entries = [self._as_log_entry(l, now) for l in rules.logs]
 
-        return sc_messages.ServicecontrolServicesReportRequest(
-            serviceName=self.service_name,
-            reportRequest=sc_messages.ReportRequest(operations=[op]))
+        return sc_messages.ReportRequest(
+            service_name=self.service_name,
+            operations=[op])
 
 
 _NO_RESULTS = tuple()
@@ -471,11 +469,9 @@ class Aggregator(object):
             max_ops = self.MAX_OPERATION_COUNT
             for x in range(0, len(flushed_ops), max_ops):
                 report_request = sc_messages.ReportRequest(
+                    service_name=self.service_name,
                     operations=flushed_ops[x:x + max_ops])
-                reqs.append(
-                    sc_messages.ServicecontrolServicesReportRequest(
-                        serviceName=self.service_name,
-                        reportRequest=report_request))
+                reqs.append(report_request)
 
             return reqs
 
@@ -506,13 +502,13 @@ class Aggregator(object):
         """
         if self._cache is None:
             return None  # no cache, send request now
-        if not isinstance(req, sc_messages.ServicecontrolServicesReportRequest):
+        if not isinstance(req, sc_messages.ReportRequest):
             raise ValueError(u'Invalid request')
-        if req.serviceName != self.service_name:
+        if req.service_name != self.service_name:
             _logger.error(u'bad report(): service_name %s does not match ours %s',
-                          req.serviceName, self.service_name)
+                          req.service_name, self.service_name)
             raise ValueError(u'Service name mismatch')
-        report_req = req.reportRequest
+        report_req = req
         if report_req is None:
             _logger.error(u'bad report(): no report_request in %s', req)
             raise ValueError(u'Expected report_request not set')
@@ -539,7 +535,7 @@ class Aggregator(object):
 def _has_high_important_operation(req):
     def is_important(op):
         return (op.importance !=
-                sc_messages.Operation.ImportanceValueValuesEnum.LOW)
+                sc_messages.Operation.Importance.LOW)
 
     return functools.reduce(lambda x, y: x and is_important(y),
                             req.operations, True)
@@ -568,9 +564,9 @@ def _sign_operation(op):
        string: a unique signature for that operation
     """
     md5 = hashlib.md5()
-    md5.update(op.consumerId.encode('utf-8'))
+    md5.update(op.consumer_id.encode('utf-8'))
     md5.update(b'\x00')
-    md5.update(op.operationName.encode('utf-8'))
+    md5.update(op.operation_name.encode('utf-8'))
     if op.labels:
-        signing.add_dict_to_hash(md5, encoding.MessageToPyValue(op.labels))
+        signing.add_dict_to_hash(md5, op.labels)
     return md5.digest()

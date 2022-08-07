@@ -36,7 +36,6 @@ import http.client
 import logging
 from datetime import datetime
 
-from apitools.base.py import encoding
 from google.cloud import servicecontrol as sc_messages
 
 from . import (caches, label_descriptor, metric_value, operation,
@@ -94,11 +93,11 @@ def convert_response(allocate_quota_response, project_id):
     Returns:
        tuple(code, message)
     """
-    if not allocate_quota_response or not allocate_quota_response.allocateErrors:
+    if not allocate_quota_response or not allocate_quota_response.allocate_errors:
         return _IS_OK
 
     # only allocate_quota the first error for now, as per ESP
-    theError = allocate_quota_response.allocateErrors[0]
+    theError = allocate_quota_response.allocate_errors[0]
     error_tuple = _QUOTA_ERROR_CONVERSION.get(theError.code, _IS_UNKNOWN)
     if error_tuple[1].find(u'{') == -1:  # no replacements needed:
         return error_tuple
@@ -119,20 +118,20 @@ def sign(allocate_quota_request):
     """
     if not isinstance(allocate_quota_request, sc_messages.AllocateQuotaRequest):
         raise ValueError(u'Invalid request')
-    op = allocate_quota_request.allocateOperation
-    if op is None or op.methodName is None or op.consumerId is None:
+    op = allocate_quota_request.allocate_operation
+    if op is None or op.method_name is None or op.consumer_id is None:
         logging.error(u'Bad %s: not initialized => not signed', allocate_quota_request)
         raise ValueError(u'allocate_quota request must be initialized with an operation')
     md5 = hashlib.md5()
-    md5.update(op.methodName.encode('utf-8'))
+    md5.update(op.method_name.encode('utf-8'))
     md5.update(b'\x00')
-    md5.update(op.consumerId.encode('utf-8'))
+    md5.update(op.consumer_id.encode('utf-8'))
     if op.labels:
-        signing.add_dict_to_hash(md5, encoding.MessageToPyValue(op.labels))
-    for value_set in op.quotaMetrics:
+        signing.add_dict_to_hash(md5, op.labels)
+    for value_set in op.quota_metrics:
         md5.update(b'\x00')
-        md5.update(value_set.metricName.encode('utf-8'))
-        for mv in value_set.metricValues:
+        md5.update(value_set.metric_name.encode('utf-8'))
+        for mv in value_set.metric_values:
             metric_value.update_hash(md5, mv)
 
     md5.update(b'\x00')
@@ -186,27 +185,24 @@ class Info(collections.namedtuple(u'Info', _INFO_FIELDS), operation.Info):
             labels[_KNOWN_LABELS.SCC_REFERER.label_name] = self.referer
 
         qop = sc_messages.QuotaOperation(
-            operationId=op.operationId,
-            methodName=op.operationName,
-            consumerId=op.consumerId,
-            quotaMode=sc_messages.QuotaOperation.QuotaModeValueValuesEnum.BEST_EFFORT,
+            operation_id=op.operation_id,
+            method_name=op.operation_name,
+            consumer_id=op.consumer_id,
+            quota_mode=sc_messages.QuotaOperation.QuotaMode.BEST_EFFORT,
         )
-        qop.labels = encoding.PyValueToMessage(
-            sc_messages.QuotaOperation.LabelsValue, labels)
+        qop.labels = labels
 
         quota_info = self.quota_info if self.quota_info else {}
-        qop.quotaMetrics = [
+        qop.quota_metrics= [
             sc_messages.MetricValueSet(
-                metricName=name, metricValues=[sc_messages.MetricValue(int64Value=cost)])
+                metric_name=name, metric_values=[sc_messages.MetricValue(int64_value=cost)])
             for name, cost in list(quota_info.items())
         ]
 
-        allocate_quota_request = sc_messages.AllocateQuotaRequest(allocateOperation=qop)
+        allocate_quota_request = sc_messages.AllocateQuotaRequest(service_name=self.service_name, allocate_operation=qop)
         if self.config_id:
-            allocate_quota_request.serviceConfigId = self.config_id
-        return sc_messages.ServicecontrolServicesAllocateQuotaRequest(
-            serviceName=self.service_name,
-            allocateQuotaRequest=allocate_quota_request)
+            allocate_quota_request.service_config_id = self.config_id
+        return allocate_quota_request
 
 
 class Aggregator(object):
@@ -304,7 +300,7 @@ class Aggregator(object):
         """
         if self._cache is None:
             return
-        signature = sign(req.allocateQuotaRequest)
+        signature = sign(req)
         with self._cache as c:
             now = self._timer()
             item = c.get(signature)
@@ -321,18 +317,18 @@ class Aggregator(object):
     def allocate_quota(self, req):
         if self._cache is None:
             return None  # no cache, send request now
-        if not isinstance(req, sc_messages.ServicecontrolServicesAllocateQuotaRequest):
+        if not isinstance(req, sc_messages.AllocateQuotaRequest):
             raise ValueError(u'Invalid request')
-        if req.serviceName != self.service_name:
+        if req.service_name != self.service_name:
             _logger.error(u'bad allocate_quota(): service_name %s does not match ours %s',
-                          req.serviceName, self.service_name)
+                          req.service_name, self.service_name)
             raise ValueError(u'Service name mismatch')
-        allocate_quota_request = req.allocateQuotaRequest
+        allocate_quota_request = req
         if allocate_quota_request is None:
             _logger.error(u'bad allocate_quota(): no allocate_quota_request in %s', req)
             raise ValueError(u'Expected operation not set')
-        op = allocate_quota_request.allocateOperation
-        if op is None:
+        op = allocate_quota_request.allocate_operation
+        if not op:
             _logger.error(u'bad allocate_quota(): no operation in %s', req)
             raise ValueError(u'Expected operation not set')
 
@@ -348,7 +344,7 @@ class Aggregator(object):
                 # requests will be aggregated to this temporary
                 # element until the response for the actual request
                 # arrives.
-                temp_response = sc_messages.AllocateQuotaResponse(operationId=op.operationId)
+                temp_response = sc_messages.AllocateQuotaResponse(operation_id=op.operation_id)
                 item = CachedItem(allocate_quota_request, temp_response, self.service_name, now)
                 item.signature = signature
                 item.is_in_flight = True
@@ -362,8 +358,8 @@ class Aggregator(object):
                 refresh_request = item.extract_request()
                 if not item.is_positive_response():
                     # if the cached response is negative, then use NORMAL QuotaMode instead of BEST_EFFORT
-                    normal = sc_messages.QuotaOperation.QuotaModeValueValuesEnum.NORMAL
-                    refresh_request.allocateQuotaRequest.allocateOperation.quotaMode = normal
+                    normal = sc_messages.QuotaOperation.QuotaMode.NORMAL
+                    refresh_request.allocate_operation.quota_mode = normal
                 out.append(refresh_request)  # pylint: disable=no-member
             if item.is_positive_response():
                 item.aggregate(allocate_quota_request)
@@ -407,9 +403,9 @@ class CachedItem(object):
         if self._op_aggregator is None:
             # This is correct behavior; we have no need to aggregate the req
             # from the constructor since it has already been sent.
-            self._op_aggregator = QuotaOperationAggregator(req.allocateOperation)
+            self._op_aggregator = QuotaOperationAggregator(req.allocate_operation)
         else:
-            self._op_aggregator.merge_operation(req.allocateOperation)
+            self._op_aggregator.merge_operation(req.allocate_operation)
 
     def extract_request(self):
         if self._op_aggregator is None:
@@ -417,39 +413,38 @@ class CachedItem(object):
         else:
             op = self._op_aggregator.as_quota_operation()
             self._op_aggregator = None
-            allocate_quota_request = sc_messages.AllocateQuotaRequest(allocateOperation=op)
-        return sc_messages.ServicecontrolServicesAllocateQuotaRequest(
-            serviceName=self._service_name,
-            allocateQuotaRequest=allocate_quota_request)
+            allocate_quota_request = sc_messages.AllocateQuotaRequest(allocate_operation=op)
+        request.service_name = self._service_name
+        return request
 
     def is_positive_response(self):
-        return len(self.response.allocateErrors) == 0
+        return len(self.response.allocate_errors) == 0
 
 
 class QuotaOperationAggregator(object):
     def __init__(self, op):
         # The protorpc version used here lacks MergeFrom
         self.op = copy.deepcopy(op)
-        self.op.quotaMetrics = []
+        self.op.quota_metrics = []
         self.metric_value_sets = {}
         self.merge_operation(op)
 
     def merge_operation(self, op):
         assert isinstance(op, sc_messages.QuotaOperation)
-        for mv_set in op.quotaMetrics:
-            metric_name = mv_set.metricName
+        for mv_set in op.quota_metrics:
+            metric_name = mv_set.metric_name
             if metric_name not in self.metric_value_sets:
-                self.metric_value_sets[metric_name] = mv_set.metricValues[0]
+                self.metric_value_sets[metric_name] = mv_set.metric_values[0]
             else:
                 self.metric_value_sets[metric_name] = metric_value.merge(
                     metric_value.MetricKind.DELTA,
                     self.metric_value_sets[metric_name],
-                    mv_set.metricValues[0]
+                    mv_set.metric_values[0]
                 )
 
     def as_quota_operation(self):
         op = copy.deepcopy(self.op)
         for m_name, m_value in list(self.metric_value_sets.items()):
-            op.quotaMetrics.append(sc_messages.MetricValueSet(
-                metricName=m_name, metricValues=[m_value]))
+            op.quota_metrics.append(sc_messages.MetricValueSet(
+                metric_name=m_name, metric_values=[m_value]))
         return op
