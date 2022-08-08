@@ -119,7 +119,7 @@ def sign(allocate_quota_request):
     if not isinstance(allocate_quota_request, sc_messages.AllocateQuotaRequest):
         raise ValueError(u'Invalid request')
     op = allocate_quota_request.allocate_operation
-    if op is None or op.method_name is None or op.consumer_id is None:
+    if not op or not op.method_name or not op.consumer_id:
         logging.error(u'Bad %s: not initialized => not signed', allocate_quota_request)
         raise ValueError(u'allocate_quota request must be initialized with an operation')
     md5 = hashlib.md5()
@@ -280,7 +280,7 @@ class Aggregator(object):
             flushed_items = list(out)
             out.clear()  # pylint: disable=no-member
             for req in flushed_items:
-                assert isinstance(req, sc_messages.ServicecontrolServicesAllocateQuotaRequest)
+                assert isinstance(req, sc_messages.AllocateQuotaRequest)
             return flushed_items
 
     def clear(self):
@@ -415,7 +415,12 @@ class CachedItem(object):
             op = self._op_aggregator.as_quota_operation()
             self._op_aggregator = None
             allocate_quota_request = sc_messages.AllocateQuotaRequest(allocate_operation=op)
-        request.service_name = self._service_name
+
+        request = sc_messages.AllocateQuotaRequest(
+            service_name=self._service_name,
+            allocate_operation=allocate_quota_request.allocate_operation,
+            service_config_id=allocate_quota_request.service_config_id
+        )
         return request
 
     def is_positive_response(self):
@@ -437,11 +442,12 @@ class QuotaOperationAggregator(object):
             if metric_name not in self.metric_value_sets:
                 self.metric_value_sets[metric_name] = mv_set.metric_values[0]
             else:
-                self.metric_value_sets[metric_name] = metric_value.merge(
+                merged = metric_value.merge(
                     metric_value.MetricKind.DELTA,
                     self.metric_value_sets[metric_name],
                     mv_set.metric_values[0]
                 )
+                self.metric_value_sets[metric_name] = merged
 
     def as_quota_operation(self):
         op = copy.deepcopy(self.op)
