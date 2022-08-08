@@ -83,8 +83,7 @@ _START_OF_EPOCH_TIMESTAMP = timestamp.to_rfc3339(_START_OF_EPOCH)
 _TEST_SERVICE_NAME = u'a_service_name'
 _TEST_SIZE=1
 _TEST_LATENCY=datetime.timedelta(seconds=7)
-_EPOCH_TIMESTAMP_PB = timestamp_pb2.Timestamp()
-_EPOCH_TIMESTAMP_PB.FromDatetime(_START_OF_EPOCH)
+_EPOCH_TIMESTAMP_PB = timestamp_pb2.Timestamp().FromJsonString(_START_OF_EPOCH_TIMESTAMP)
 
 _EXPECTED_OK_LOG_ENTRY = sc_messages.LogEntry(
     name = u'endpoints-log',
@@ -340,20 +339,17 @@ class TestInfo(unittest.TestCase):
         rules = report_request.ReportingRules(logs=[u'endpoints-log'])
         for info, want in _ADD_LOG_TESTS:
             got = info.as_report_request(rules, timer=timer)
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
             # compare the log entry in detail to avoid instability when
             # comparing the operations directly
             wantLogEntry = want.log_entries[0]
-            gotLogEntry = got.reportRequest.operations[0].log_entries[0]
+            gotLogEntry = got.operations[0].log_entries[0]
             expect(gotLogEntry.name).to(equal(wantLogEntry.name))
             expect(gotLogEntry.timestamp).to(equal(wantLogEntry.timestamp))
-            print(f"got timestamp {gotLogEntry.timestamp}")
-            print(f"want timestamp {wantLogEntry.timestamp}")
             expect(gotLogEntry.severity).to(equal(wantLogEntry.severity))
-            gotStruct = MessageToDict(gotLogEntry.structPayload)
-            print("got struct {gotStruct}")
-            wantStruct = MessageToDict(wantLogEntry.structPayload)
-            print(f"want struct {wantStruct}")
+
+            gotStruct = sc_messages.LogEntry.to_dict(gotLogEntry).get("struct_payload")
+            wantStruct = sc_messages.LogEntry.to_dict(wantLogEntry).get("struct_payload")
             expect(gotStruct).to(equal(wantStruct))
 
     def test_should_add_expected_metric_as_report_request(self):
@@ -363,11 +359,8 @@ class TestInfo(unittest.TestCase):
         ])
         for info, want in _ADD_METRICS_TESTS:
             got = info.as_report_request(rules, timer=timer)
-            # These additional properties have no well-defined order, so sort them.
-            got.reportRequest.operations[0].labels.additionalProperties.sort(key=KEYGETTER)
-            want.labels.additionalProperties.sort(key=KEYGETTER)
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
-            expect(got.reportRequest.operations[0]).to(equal(want))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
+            expect(got.operations[0]).to(equal(want))
 
     def test_should_add_expected_label_as_report_request(self):
         timer = _DateTimeTimer()
@@ -376,11 +369,8 @@ class TestInfo(unittest.TestCase):
         ])
         for info, want in _ADD_LABELS_TESTS:
             got = info.as_report_request(rules, timer=timer)
-            # These additional properties have no well-defined order, so sort them.
-            got.reportRequest.operations[0].labels.additionalProperties.sort(key=KEYGETTER)
-            want.labels.additionalProperties.sort(key=KEYGETTER)
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
-            expect(got.reportRequest.operations[0]).to(equal(want))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
+            expect(got.operations[0]).to(equal(want))
 
 
 class TestAggregatorReport(unittest.TestCase):
@@ -399,12 +389,6 @@ class TestAggregatorReport(unittest.TestCase):
 
     def test_should_fail_if_service_name_does_not_match(self):
         req = _make_test_request(self.SERVICE_NAME + u'-will-not-match')
-        testf = lambda: self.agg.report(req)
-        expect(testf).to(raise_error(ValueError))
-
-    def test_should_fail_if_check_request_is_missing(self):
-        req = sc_messages.ServicecontrolServicesReportRequest(
-            serviceName=self.SERVICE_NAME)
         testf = lambda: self.agg.report(req)
         expect(testf).to(raise_error(ValueError))
 
@@ -469,7 +453,7 @@ class TestCachingAggregator(unittest.TestCase):
         self.timer.tick() # ... and is now past the flush_interval
         flushed_reqs = agg.flush()
         expect(len(flushed_reqs)).to(equal(1))
-        flushed_ops = flushed_reqs[0].reportRequest.operations
+        flushed_ops = flushed_reqs[0].operations
         expect(len(flushed_ops)).to(equal(4)) # number of ops in the req{1,2}
 
     def test_should_aggregate_operations_in_requests(self):
@@ -486,7 +470,7 @@ class TestCachingAggregator(unittest.TestCase):
         self.timer.tick() # ... and is now past the flush_interval
         flushed_reqs = agg.flush()
         expect(len(flushed_reqs)).to(equal(1))
-        flushed_ops = flushed_reqs[0].reportRequest.operations
+        flushed_ops = flushed_reqs[0].operations
         expect(len(flushed_ops)).to(equal(2)) # many requests, but only two ops
 
     def test_may_clear_aggregated_operations(self):
@@ -533,7 +517,4 @@ def _make_test_request(service_name, importance=None, n=3, start=0):
                               importance=importance) for op_name in op_names]
     if ops:
         ops[0].labels = {u'key1': u'always add a label to the first op'}
-    report_request = sc_messages.ReportRequest(operations=ops)
-    return sc_messages.ServicecontrolServicesReportRequest(
-        serviceName=service_name,
-        reportRequest=report_request)
+    return sc_messages.ReportRequest(service_name=service_name, operations=ops)

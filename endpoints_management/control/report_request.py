@@ -31,9 +31,10 @@ import logging
 import time
 from datetime import datetime, timedelta
 
-from apitools.base.py import encoding
 from google.cloud import servicecontrol as sc_messages
 from google.logging.type import log_severity_pb2 as log_severity
+from google.protobuf import struct_pb2, timestamp_pb2
+from google.protobuf.json_format import ParseDict
 
 from enum import Enum
 from . import caches, label_descriptor, operation
@@ -163,8 +164,8 @@ _SEVERITY = log_severity.LogSeverity
 
 
 def _struct_payload_from(a_dict):
-    return encoding.PyValueToMessage(
-        sc_messages.LogEntry.StructPayloadValue, a_dict)
+    struct_pb = struct_pb2.Struct()
+    return ParseDict(a_dict, struct_pb)
 
 
 _KNOWN_LABELS = label_descriptor.KnownLabels
@@ -342,9 +343,9 @@ class Info(
 
         return sc_messages.LogEntry(
             name=name,
-            timestamp=timestamp.to_rfc3339(now),
+            timestamp=timestamp_pb2.Timestamp().FromJsonString(timestamp.to_rfc3339(now)),
             severity=severity,
-            structPayload=_struct_payload_from(d))
+            struct_payload=_struct_payload_from(d))
 
     def as_report_request(self, rules, timer=datetime.utcnow):
         """Makes a `ServicecontrolServicesReportRequest` from this instance
@@ -509,7 +510,7 @@ class Aggregator(object):
                           req.service_name, self.service_name)
             raise ValueError(u'Service name mismatch')
         report_req = req
-        if report_req is None:
+        if not report_req:
             _logger.error(u'bad report(): no report_request in %s', req)
             raise ValueError(u'Expected report_request not set')
         if _has_high_important_operation(report_req) or self._cache is None:
