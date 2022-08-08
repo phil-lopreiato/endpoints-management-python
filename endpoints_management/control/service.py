@@ -100,7 +100,7 @@ _SIMPLE_CORE = Parse(_SIMPLE_CONFIG, service_pb2.Service())
 
 
 def _load_simple():
-    return ParseDict(MessageToDict(_SIMPLE_CORE), service_pv2.Service())
+    return ParseDict(MessageToDict(_SIMPLE_CORE), service_pb2.Service())
 
 
 class Loaders(Enum):
@@ -206,7 +206,7 @@ class MethodRegistry(object):
             return {}
 
         quota_infos = {}
-        for metric_rule in service.quota.metricRules:
+        for metric_rule in service.quota.metric_rules:
             selector = metric_rule.selector
             costs = {ap.key: ap.value for ap in metric_rule.metricCosts.additionalProperties}
             quota_infos[selector] = costs
@@ -302,9 +302,9 @@ class MethodRegistry(object):
     def _update_system_parameters(self):
         extracted_methods = self._extracted_methods
         service = self._service
-        if not service.systemParameters:
+        if not service.system_parameters:
             return
-        rules = service.systemParameters.rules
+        rules = service.system_parameters.rules
         for rule in rules:
             selector = rule.selector
             method = extracted_methods.get(selector)
@@ -404,12 +404,12 @@ def extract_report_spec(
          labels (list[string]) # the labels to add
        )
     """
-    resource_descs = service.monitoredResources
+    resource_descs = service.monitored_resources
     labels_dict = {}
     logs = set()
     if service.logging:
         logs = _add_logging_destinations(
-            service.logging.producerDestinations,
+            service.logging.producer_destinations,
             resource_descs,
             service.logs,
             labels_dict,
@@ -418,8 +418,8 @@ def extract_report_spec(
     metrics_dict = {}
     monitoring = service.monitoring
     if monitoring:
-        for destinations in (monitoring.consumerDestinations,
-                             monitoring.producerDestinations):
+        for destinations in (monitoring.consumer_destinations,
+                             monitoring.producer_destinations):
             _add_monitoring_destinations(destinations,
                                          resource_descs,
                                          service.metrics,
@@ -438,7 +438,7 @@ def _add_logging_destinations(destinations,
     all_logs = set()
     for d in destinations:
         if not _add_labels_for_a_monitored_resource(resource_descs,
-                                                    d.monitoredResource,
+                                                    d.monitored_resource,
                                                     labels_dict,
                                                     is_supported):
             continue  # skip bad monitored resources
@@ -458,7 +458,7 @@ def _add_monitoring_destinations(destinations,
     # pylint: disable=too-many-arguments
     for d in destinations:
         if not _add_labels_for_a_monitored_resource(resource_descs,
-                                                    d.monitoredResource,
+                                                    d.monitored_resource,
                                                     labels_dict,
                                                     label_is_supported):
             continue  # skip bad monitored resources
@@ -477,7 +477,7 @@ def _add_labels_from_descriptors(descs, labels_dict, is_supported):
     # only add labels if there are no conflicts
     for desc in descs:
         existing = labels_dict.get(desc.key)
-        if existing and existing.valueType != desc.valueType:
+        if existing and existing.value_type != desc.value_type:
             _logger.warn(u'halted label scan: conflicting label in %s', desc.key)
             return False
     # Update labels_dict
@@ -528,7 +528,7 @@ _HTTP_RULE_ONE_OF_FIELDS = (
 
 def _detect_pattern_option(http_rule):
     for f in _HTTP_RULE_ONE_OF_FIELDS:
-        value = http_rule.get_assigned_value(f)
+        value = getattr(http_rule, f, None)
         if value is not None:
             if f == u'custom':
                 return value.kind, value.path

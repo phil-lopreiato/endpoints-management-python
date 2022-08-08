@@ -23,6 +23,8 @@ import urllib
 
 from expects import be_false, be_none, be_true, expect, equal, raise_error
 from google.api import service_pb2
+from google.api import label_pb2 as ga_label
+from google.api import log_pb2
 from google.protobuf.json_format import Parse
 
 from endpoints_management.control import service
@@ -44,7 +46,7 @@ _LOGGING_DESTINATIONS_INPUT = u"""
     }]
   }],
 
-  "monitoredResources": [{
+  "monitored_resources": [{
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
@@ -54,13 +56,13 @@ _LOGGING_DESTINATIONS_INPUT = u"""
   }],
 
   "logging": {
-    "producerDestinations": [{
-      "monitoredResource": "bad-monitored-resource",
+    "producer_destinations": [{
+      "monitored_resource": "bad-monitored-resource",
       "logs": [
         "bad-monitored-resource-log"
       ]
     }, {
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "logs": [
         "bad-endpoints-log",
         "endpoints-log"
@@ -75,7 +77,7 @@ _LOGGING_DESTINATIONS_INPUT = u"""
 class _JsonServiceBase(object):
 
     def setUp(self):
-        self._subject = Parse(self._INPUT, service_bp2.Service())
+        self._subject = Parse(self._INPUT, service_pb2.Service())
 
     def _extract(self):
         return service.extract_report_spec(
@@ -107,11 +109,11 @@ class TestLoggingDestinations(_JsonServiceBase, unittest.TestCase):
         expect(set(labels)).to(equal(set(self._WANTED_LABELS)))
 
     def test_should_drop_conflicting_log_labels(self):
-        conflicting_label = sm_messages.LabelDescriptor(
+        conflicting_label = ga_label.LabelDescriptor(
             key=u'supported/endpoints-log-label',
-            valueType=sm_messages.LabelDescriptor.ValueTypeValueValuesEnum.BOOL
+            value_type=ga_label.LabelDescriptor.ValueType.BOOL
         )
-        bad_log_desc = sm_messages.LogDescriptor(
+        bad_log_desc = log_pb2.LogDescriptor(
             name=u'bad-endpoints-log',
             labels=[conflicting_label]
         )
@@ -142,7 +144,7 @@ _METRIC_DESTINATIONS_INPUTS = u"""
     }]
   }],
 
-  "monitoredResources": {
+  "monitored_resources": {
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
@@ -152,15 +154,15 @@ _METRIC_DESTINATIONS_INPUTS = u"""
   },
 
   "monitoring": {
-    "consumerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "consumer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "metrics": [
         "supported/endpoints-metric",
         "unsupported/unsupported-endpoints-metric",
         "supported/unknown-metric"
       ]
     }, {
-      "monitoredResource": "endpoints.googleapis.com/non-existent",
+      "monitored_resource": "endpoints.googleapis.com/non-existent",
       "metrics": [
          "supported/endpoints-metric",
          "unsupported/unsupported-endpoints-metric",
@@ -231,7 +233,7 @@ _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
     }]
   }],
 
-  "monitoredResources": {
+  "monitored_resources": {
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
@@ -241,23 +243,23 @@ _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
   },
 
   "logging": {
-    "producerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "producer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "logs": ["endpoints-log"]
     }]
   },
 
   "monitoring": {
-    "consumerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "consumer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "metrics": [
          "supported/endpoints-consumer-metric",
          "supported/endpoints-metric"
       ]
     }],
 
-    "producerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "producer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "metrics": [
          "supported/endpoints-producer-metric",
          "supported/endpoints-metric"
@@ -435,7 +437,7 @@ class TestMethodRegistryUsageConfig(_JsonServiceBase, unittest.TestCase):
 _SYSTEM_PARAMETER_CONFIG_TEST = u"""
 {
     "name": "system-parameter-config",
-    "systemParameters": {
+    "system_parameters": {
        "rules": [{
          "selector": "Uvw.Method1",
          "parameters": [{
@@ -649,7 +651,7 @@ _AUTHENTICATION_CONFIG_TEST = u"""
         "rules": [{
             "selector": "Bookstore.ListShelves",
             "requirements": [{
-                "providerId": "shelves-provider",
+                "provider_id": "shelves-provider",
                 "audiences": "aud1,aud2"
             }]
         }]
@@ -720,7 +722,7 @@ _QUOTA_CONFIG_TEST = u"""
                 }
             }
         ],
-        "metricRules": [
+        "metric_rules": [
             {
                 "metricCosts": {
                     "example-list-requests": "1",
@@ -734,12 +736,12 @@ _QUOTA_CONFIG_TEST = u"""
         {
             "metricKind": "GAUGE",
             "name": "example-read-requests",
-            "valueType": "INT64"
+            "value_type": "INT64"
         },
         {
             "metricKind": "GAUGE",
             "name": "example-list-requests",
-            "valueType": "INT64"
+            "value_type": "INT64"
         }
     ],
     "http": {
@@ -796,14 +798,14 @@ class TestMethodRegistryCustomMethodConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _CUSTOM_METHOD_CONFIG_TEST
     def test_configures_custom_method(self):
         registry = self._get_registry()
-        url = urllib.quote(u'/shelves/88:lock')  # custom methods come in percent-encoded
+        url = urllib.parse.quote(u'/shelves/88:lock')  # custom methods come in percent-encoded
         info = registry.lookup(u'POST', url)
         assert info is not None
         assert info.selector == 'Bookstore.LockShelf'
 
     def test_other_characters_still_quoted(self):
         registry = self._get_registry()
-        shelf = urllib.quote('A/Z', safe='')
+        shelf = urllib.parse.quote('A/Z', safe='')
         assert '/' not in shelf
         url = '/shelves/{}/books'.format(shelf)
         info = registry.lookup(u'POST', url)
