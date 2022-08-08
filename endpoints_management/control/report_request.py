@@ -568,5 +568,6 @@ def _sign_operation(op):
     md5.update(b'\x00')
     md5.update(op.operation_name.encode('utf-8'))
     if op.labels:
-        signing.add_dict_to_hash(md5, op.labels)
+        sorted_labels = {k: op.labels[k] for k in sorted(op.labels)}
+        signing.add_dict_to_hash(md5, sorted_labels)
     return md5.digest()

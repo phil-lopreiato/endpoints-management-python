@@ -90,7 +90,8 @@ def update_hash(a_hash, mv):
 
     """
     if mv.labels:
-        signing.add_dict_to_hash(a_hash, mv.labels)
+        sorted_labels = {k: mv.labels[k] for k in sorted(mv.labels)}
+        signing.add_dict_to_hash(a_hash, sorted_labels)
     """
     money_value doesn't exist
     money_value = mv.money_value

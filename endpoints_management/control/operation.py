@@ -176,7 +176,7 @@ class Aggregator(object):
             mvs = self._metric_values_by_name_then_sign[name]
             result.metric_value_sets.append(
                 sc_messages.MetricValueSet(
-                    metricName=name, metricValues=list(mvs.values())))
+                    metric_name=name, metric_values=list(mvs.values())))
         return result
 
     def add(self, other_op):
@@ -198,7 +198,7 @@ class Aggregator(object):
 
     def _merge_metric_values(self, other_op):
         for value_set in other_op.metric_value_sets:
-            name = value_set.metric_namee
+            name = value_set.metric_name
             kind = self._kinds.get(name, self.DEFAULT_KIND)
             by_signature = self._metric_values_by_name_then_sign[name]
             for mv in value_set.metric_values:
@@ -206,6 +206,7 @@ class Aggregator(object):
                 prior = by_signature.get(signature)
                 if prior is not None:
                     metric_value.merge(kind, prior, mv)
+
                 by_signature[signature] = mv
 
     def _merge_timestamps(self, other_op):

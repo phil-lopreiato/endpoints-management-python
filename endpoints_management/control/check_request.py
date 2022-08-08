@@ -171,7 +171,8 @@ def sign(check_request):
     md5.update(b'\x00')
     md5.update(op.consumer_id.encode('utf-8'))
     if op.labels:
-        signing.add_dict_to_hash(md5, op.labels)
+        sorted_labels = {k: op.labels[k] for k in sorted(op.labels)}
+        signing.add_dict_to_hash(md5, sorted_labels)
     for value_set in op.metric_value_sets:
         md5.update(b'\x00')
         md5.update(value_set.metric_name.encode('utf-8'))
