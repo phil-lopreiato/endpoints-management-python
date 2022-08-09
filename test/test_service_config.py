@@ -37,7 +37,7 @@ class ServiceConfigFetchTest(unittest.TestCase):
         u"id": _SERVICE_VERSION
     }
     _SERVICE_CONFIG_LIST_JSON = {
-        u"serviceConfigs": [{
+        u"service_configs": [{
             u"name": _SERVICE_NAME,
             u"title": _SERVICE_NAME,
             u"documentation": {},
