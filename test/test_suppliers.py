@@ -17,6 +17,9 @@ import unittest
 import httmock
 from unittest import mock
 
+from Cryptodome import PublicKey
+from jwkest import jwk
+
 from endpoints_management.auth import suppliers
 
 

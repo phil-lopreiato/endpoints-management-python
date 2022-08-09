@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from builtins import object
 import datetime
 from dogpile import cache
-#from jwkest import jwk
+from jwkest import jwk
 import requests
 import ssl
 
