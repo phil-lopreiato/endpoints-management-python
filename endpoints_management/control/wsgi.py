@@ -248,7 +248,7 @@ class EnvironmentMiddleware(object):
           a_service (:class:`endpoints_management.gen.servicemanagement_v1_messages.Service`):
             a service instance
         """
-        if not isinstance(a_service, service_p22.Service):
+        if not isinstance(a_service, service_pb2.Service):
             raise ValueError(u"service is None or not an instance of Service")
 
         self._application = application
@@ -371,10 +371,10 @@ class Middleware(object):
             _logger.debug(u'checking %s with %s', method_info, check_request)
             check_resp = self._control_client.check(check_req)
             error_msg = self._handle_check_response(app_info, check_resp, start_response)
-            if (check_resp and check_resp.checkInfo and
-                    check_resp.checkInfo.consumerInfo):
+            if (check_resp and check_resp.check_info and
+                    check_resp.check_info.consumerInfo):
                 consumer_project_number = (
-                    check_resp.checkInfo.consumerInfo.projectNumber)
+                    check_resp.check_info.consumerInfo.projectNumber)
             if error_msg is None:
                 quota_info = self._create_quota_info(method_info, parsed_uri, environ)
                 if not quota_info.quota_info:
@@ -669,17 +669,17 @@ def _create_authenticator(a_service):
     if not isinstance(a_service, service_pb2.Service):
         raise ValueError(u"service is None or not an instance of Service")
 
-    authentication = a_service.authentication
-    if not authentication:
+    if not a_service.HasField('authentication'):
         _logger.info(u"authentication is not configured in service, "
                      u"authentication checks will be disabled")
-        return
+        return None
 
+    authentication = a_service.authentication
     issuers_to_provider_ids = {}
     issuer_uri_configs = {}
     for provider in authentication.providers:
         issuer = provider.issuer
-        jwks_uri = provider.jwksUri
+        jwks_uri = provider.jwks_uri
 
         # Enable openID discovery if jwks_uri is unset
         open_id = jwks_uri is None

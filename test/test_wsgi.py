@@ -14,7 +14,6 @@
 
 from __future__ import absolute_import
 
-#from apitools.base.py import encoding
 import os
 import tempfile
 import unittest
@@ -24,6 +23,7 @@ from unittest import mock
 
 from google.api import service_pb2
 from google.cloud import servicecontrol as sc_messages
+from google.protobuf.json_format import Parse
 
 from endpoints_management.auth import suppliers
 from endpoints_management.auth import tokens
@@ -96,7 +96,7 @@ class TestMiddleware(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         wrapped = wsgi.Middleware(wrappee, self.PROJECT_ID, control_client)
         wrapped(given, _dummy_start_response)
         expect(control_client.check.called).to(be_false)
@@ -115,7 +115,7 @@ class TestMiddleware(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         with_control = wsgi.Middleware(wrappee, self.PROJECT_ID, control_client)
         wrapped = wsgi.EnvironmentMiddleware(with_control,
                                              service.Loaders.SIMPLE.load())
@@ -137,10 +137,10 @@ class TestMiddleware(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId = u'fake_operation_id',
-            checkErrors = [
+            operation_id = u'fake_operation_id',
+            check_errors = [
                 sc_messages.CheckError(
-                    code=sc_messages.CheckError.CodeValueValuesEnum.PROJECT_DELETED)
+                    code=sc_messages.CheckError.Code.PROJECT_DELETED)
             ]
         )
         wrapped = wsgi.add_all(wrappee,
@@ -164,7 +164,7 @@ class TestMiddleware(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         control_client.check.return_value = dummy_response
 
         loader = mock.MagicMock()
@@ -324,7 +324,7 @@ class TestMiddlewareWithParams(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         wrapped = wsgi.add_all(wrappee,
                                self.PROJECT_ID,
                                control_client,
@@ -333,7 +333,7 @@ class TestMiddlewareWithParams(unittest.TestCase):
         wrapped(given, _dummy_start_response)
         expect(control_client.check.called).to(be_true)
         req = control_client.check.call_args[0][0]
-        expect(req.checkRequest.operation.consumerId).to(
+        expect(req.operation.consumer_id).to(
             equal(u'project:middleware-with-params'))
         expect(control_client.report.called).to(be_true)
         expect(control_client.allocate_quota.called).to(be_false)
@@ -349,18 +349,18 @@ class TestMiddlewareWithParams(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         wrapped = wsgi.add_all(wrappee,
                                self.PROJECT_ID,
                                control_client,
                                loader=service.Loaders.ENVIRONMENT)
         control_client.check.return_value = dummy_response
         control_client.allocate_quota.side_effect = lambda req: sc_messages.AllocateQuotaResponse(
-            operationId=req.allocateQuotaRequest.allocateOperation.operationId)
+            operation_id=req.allocate_operation.operation_id)
         wrapped(given, _dummy_start_response)
         expect(control_client.check.called).to(be_true)
         req = control_client.check.call_args[0][0]
-        expect(req.checkRequest.operation.consumerId).to(
+        expect(req.operation.consumer_id).to(
             equal(u'project:middleware-with-params'))
         expect(control_client.report.called).to(be_true)
         expect(control_client.allocate_quota.called).to(be_true)
@@ -377,7 +377,7 @@ class TestMiddlewareWithParams(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         wrapped = wsgi.add_all(wrappee,
                                self.PROJECT_ID,
                                control_client,
@@ -386,11 +386,11 @@ class TestMiddlewareWithParams(unittest.TestCase):
         wrapped(given, _dummy_start_response)
         expect(control_client.check.called).to(be_true)
         check_req = control_client.check.call_args[0][0]
-        expect(check_req.checkRequest.operation.consumerId).to(
+        expect(check_req.operation.consumer_id).to(
             equal(u'api_key:my-query-value'))
         expect(control_client.report.called).to(be_true)
         report_req = control_client.report.call_args[0][0]
-        expect(report_req.reportRequest.operations[0].consumerId).to(
+        expect(report_req.operations[0].consumer_id).to(
             equal(u'api_key:my-query-value'))
         expect(control_client.allocate_quota.called).to(be_false)
 
@@ -406,7 +406,7 @@ class TestMiddlewareWithParams(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         wrapped = wsgi.add_all(wrappee,
                                self.PROJECT_ID,
                                control_client,
@@ -414,13 +414,13 @@ class TestMiddlewareWithParams(unittest.TestCase):
         control_client.check.return_value = dummy_response
         wrapped(given, _dummy_start_response)
         expect(control_client.check.called).to(be_true)
-        check_request = control_client.check.call_args_list[0].checkRequest
+        check_request = control_client.check.call_args_list[0].check_request
         check_req = control_client.check.call_args[0][0]
-        expect(check_req.checkRequest.operation.consumerId).to(
+        expect(check_req.operation.consumer_id).to(
             equal(u'api_key:my-header-value'))
         expect(control_client.report.called).to(be_true)
         report_req = control_client.report.call_args[0][0]
-        expect(report_req.reportRequest.operations[0].consumerId).to(
+        expect(report_req.operations[0].consumer_id).to(
             equal(u'api_key:my-header-value'))
         expect(control_client.allocate_quota.called).to(be_false)
 
@@ -437,7 +437,7 @@ class TestMiddlewareWithParams(unittest.TestCase):
                 u'HTTP_REFERER': u'example.myreferer.com',
                 u'REQUEST_METHOD': u'GET'}
             dummy_response = sc_messages.CheckResponse(
-                operationId=u'fake_operation_id')
+                operation_id=u'fake_operation_id')
             wrapped = wsgi.add_all(wrappee,
                                    self.PROJECT_ID,
                                    control_client,
@@ -445,13 +445,13 @@ class TestMiddlewareWithParams(unittest.TestCase):
             control_client.check.return_value = dummy_response
             wrapped(given, _dummy_start_response)
             expect(control_client.check.called).to(be_true)
-            check_request = control_client.check.call_args_list[0].checkRequest
+            check_request = control_client.check.call_args_list[0].check_request
             check_req = control_client.check.call_args[0][0]
-            expect(check_req.checkRequest.operation.consumerId).to(
+            expect(check_req.operation.consumer_id).to(
                 equal(u'api_key:my-default-api-key-value'))
             expect(control_client.report.called).to(be_true)
             report_req = control_client.report.call_args[0][0]
-            expect(report_req.reportRequest.operations[0].consumerId).to(
+            expect(report_req.operations[0].consumer_id).to(
                 equal(u'api_key:my-default-api-key-value'))
             expect(control_client.allocate_quota.called).to(be_false)
 
@@ -466,7 +466,7 @@ class TestMiddlewareWithParams(unittest.TestCase):
             u'HTTP_REFERER': u'example.myreferer.com',
             u'REQUEST_METHOD': u'GET'}
         dummy_response = sc_messages.CheckResponse(
-            operationId=u'fake_operation_id')
+            operation_id=u'fake_operation_id')
         wrapped = wsgi.add_all(wrappee,
                                self.PROJECT_ID,
                                control_client,
@@ -476,7 +476,7 @@ class TestMiddlewareWithParams(unittest.TestCase):
         expect(control_client.check.called).to(be_false)
         expect(control_client.report.called).to(be_true)
         report_req = control_client.report.call_args[0][0]
-        expect(report_req.reportRequest.operations[0].consumerId).to(
+        expect(report_req.operations[0].consumer_id).to(
             equal(u'project:middleware-with-params'))
         expect(control_client.allocate_quota.called).to(be_false)
 
@@ -637,4 +637,4 @@ class TestPlatformDetection(unittest.TestCase):
 
 
 def _read_service_from_json(json):
-    return encoding.JsonToMessage(service_pb2.Service, json)
+    return Parse(json, service_pb2.Service())
