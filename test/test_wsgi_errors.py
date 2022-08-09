@@ -19,9 +19,10 @@ import webtest
 from unittest import mock
 from webtest.debugapp import debug_app as DEBUG_APP
 
-#from apitools.base.py import encoding
 from google.api import service_pb2
 from google.cloud import servicecontrol as sc_messages
+from google.protobuf.json_format import Parse
+
 from endpoints_management.control import (
     client, quota_request, wsgi,
 )
@@ -40,7 +41,7 @@ def control_client():
 
 @pytest.fixture()
 def service_config_loader():
-    service = encoding.JsonToMessage(service_pb2.Service, _SYSTEM_PARAMETER_CONFIG_TEST)
+    service = Parse(_SYSTEM_PARAMETER_CONFIG_TEST, service_pb2.Service())
     loader = mock.Mock()
     loader.load.return_value = service
     return loader
@@ -59,7 +60,7 @@ def test_app(wrapped_app):
 def test_handle_missing_api_key(control_client, test_app):
     url = '/uvw/method_needs_api_key/more_stuff'
     check_resp = sc_messages.CheckResponse(
-        operationId=u'fake_operation_id')
+        operation_id=u'fake_operation_id')
     control_client.check.return_value = check_resp
     resp = test_app.get(url, expect_errors=True)
     assert resp.status_code == 401
@@ -69,14 +70,14 @@ def test_handle_missing_api_key(control_client, test_app):
 
 def test_handle_out_of_quota(control_client, test_app):
     quota_resp = sc_messages.AllocateQuotaResponse(
-        allocateErrors = [
+        allocate_errors = [
             sc_messages.QuotaError(
-                code=QuotaError.Code.RESOURCE_EXHAUSTED,
+                code=sc_messages.QuotaError.Code.RESOURCE_EXHAUSTED,
                 description=u'details')
         ]
     )
     check_resp = sc_messages.CheckResponse(
-        operationId=u'fake_operation_id')
+        operation_id=u'fake_operation_id')
     control_client.check.return_value = check_resp
     control_client.allocate_quota.return_value = quota_resp
     url = '/uvw/method2/with_no_param'
