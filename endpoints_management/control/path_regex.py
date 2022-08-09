@@ -45,7 +45,7 @@ def _to_safe_path_param_name(matched_parameter):
     Returns:
       A string that's safe to be used as a regex group name.
     """
-    return '_' + base64.b32encode(matched_parameter).rstrip('=')
+    return '_' + (base64.b32encode(matched_parameter.encode('utf-8')).decode('utf-8')).rstrip('=')
 
 def compile_path_pattern(pattern):
     r"""Generates a compiled regex pattern for a path pattern.

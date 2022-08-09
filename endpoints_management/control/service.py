@@ -39,7 +39,7 @@ import urllib.request, urllib.parse, urllib.error
 
 from enum import Enum
 from google.api import service_pb2
-from google.protobuf.json_format import Parse, ParseDict, MessageToDict
+from google.protobuf.json_format import Parse, ParseDict, ParseError, MessageToDict
 
 from ..config import service_config
 from . import label_descriptor, metric_descriptor, path_regex
@@ -61,8 +61,8 @@ def _load_from_well_known_env():
         return None
     try:
         with open(config_file) as f:
-            return encoding.JsonToMessage(service_pb2.Service, f.read())
-    except ValueError:
+            return Parse(f.read(), service_pb2.Service())
+    except ParseError:
         _logger.warn(u'did not load service; bad json config file %s', config_file)
         return None
 
@@ -85,13 +85,13 @@ _SIMPLE_CONFIG = """
     "usage": {
         "rules": [{
             "selector" : "allow-all.GET",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }, {
             "selector" : "allow-all.PATCH",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }, {
             "selector" : "allow-all.POST",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }]
     }
 }
@@ -193,7 +193,7 @@ class MethodRegistry(object):
             selector = auth_rule.selector
             provider_ids_to_audiences = {}
             for requirement in auth_rule.requirements:
-                provider_id = requirement.providerId
+                provider_id = requirement.provider_id
                 if provider_id and requirement.audiences:
                     audiences = requirement.audiences.split(u",")
                     provider_ids_to_audiences[provider_id] = audiences
@@ -208,7 +208,7 @@ class MethodRegistry(object):
         quota_infos = {}
         for metric_rule in service.quota.metric_rules:
             selector = metric_rule.selector
-            costs = {ap.key: ap.value for ap in metric_rule.metricCosts.additionalProperties}
+            costs = metric_rule.metric_costs
             quota_infos[selector] = costs
 
         return quota_infos
@@ -252,8 +252,9 @@ class MethodRegistry(object):
                           template.pattern,
                           http_method)
             return True
-        except path_regex.RegexError:
+        except path_regex.RegexError as ex:
             _logger.error(u'invalid HTTP template provided: %s', url)
+            print(f"{ex}")
             return False
 
     def _update_usage(self):
@@ -265,7 +266,7 @@ class MethodRegistry(object):
             selector = rule.selector
             method = extracted_methods.get(selector)
             if method:
-                method.allow_unregistered_calls = rule.allowUnregisteredCalls
+                method.allow_unregistered_calls = rule.allow_unregistered_calls
             else:
                 _logger.error(u'bad usage selector: No HTTP rule for %s', selector)
 
@@ -320,10 +321,10 @@ class MethodRegistry(object):
                                   selector)
                     continue
 
-                if parameter.httpHeader:
-                    method.add_header_param(name, parameter.httpHeader)
-                if parameter.urlQueryParameter:
-                    method.add_url_query_param(name, parameter.urlQueryParameter)
+                if parameter.http_header:
+                    method.add_header_param(name, parameter.http_header)
+                if parameter.url_query_parameter:
+                    method.add_url_query_param(name, parameter.url_query_parameter)
 
 
 class AuthInfo(object):
@@ -529,7 +530,7 @@ _HTTP_RULE_ONE_OF_FIELDS = (
 def _detect_pattern_option(http_rule):
     for f in _HTTP_RULE_ONE_OF_FIELDS:
         value = getattr(http_rule, f, None)
-        if value is not None:
+        if value:
             if f == u'custom':
                 return value.kind, value.path
             else:

@@ -144,14 +144,14 @@ _METRIC_DESTINATIONS_INPUTS = u"""
     }]
   }],
 
-  "monitored_resources": {
+  "monitored_resources": [{
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
     }, {
       "key": "supported/endpoints"
     }]
-  },
+  }],
 
   "monitoring": {
     "consumer_destinations": [{
@@ -201,14 +201,14 @@ _NOT_SUPPORTED_PREFIX = u'unsupported/'
 
 _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
 {
-  "logs": {
+  "logs": [{
     "name": "endpoints-log",
     "labels": [{
       "key": "supported/endpoints-log-label"
     }, {
       "key": "unsupported/endpoints-log-label"
     }]
-  },
+  }],
 
   "metrics": [{
     "name": "supported/endpoints-metric",
@@ -233,14 +233,14 @@ _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
     }]
   }],
 
-  "monitored_resources": {
+  "monitored_resources": [{
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
     }, {
       "key": "supported/endpoints"
     }]
-  },
+  }],
 
   "logging": {
     "producer_destinations": [{
@@ -385,13 +385,13 @@ _USAGE_CONFIG_TEST = """
     "usage": {
         "rules": [{
             "selector" : "Uvw.Method1",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }, {
             "selector" : "Uvw.Method2",
-            "allowUnregisteredCalls" : false
+            "allow_unregistered_calls" : false
         }, {
             "selector" : "Uvw.IgnoredMethod",
-            "allowUnregisteredCalls" : false
+            "allow_unregistered_calls" : false
         }]
     },
     "http": {
@@ -442,26 +442,26 @@ _SYSTEM_PARAMETER_CONFIG_TEST = u"""
          "selector": "Uvw.Method1",
          "parameters": [{
             "name": "name1",
-            "httpHeader": "Header-Key1",
-            "urlQueryParameter": "param_key1"
+            "http_header": "Header-Key1",
+            "url_query_parameter": "param_key1"
          }, {
             "name": "name2",
-            "httpHeader": "Header-Key2",
-            "urlQueryParameter": "param_key2"
+            "http_header": "Header-Key2",
+            "url_query_parameter": "param_key2"
          }, {
             "name": "api_key",
-            "httpHeader": "ApiKeyHeader",
-            "urlQueryParameter": "ApiKeyParam"
+            "http_header": "ApiKeyHeader",
+            "url_query_parameter": "ApiKeyParam"
          }, {
-            "httpHeader": "Ignored-NoName-Key3",
-            "urlQueryParameter": "Ignored-NoName-key3"
+            "http_header": "Ignored-NoName-Key3",
+            "url_query_parameter": "Ignored-NoName-key3"
          }]
        }, {
          "selector": "Bad.NotConfigured",
          "parameters": [{
             "name": "neverUsed",
-            "httpHeader": "NeverUsed-Key1",
-            "urlQueryParameter": "NeverUsed_key1"
+            "http_header": "NeverUsed-Key1",
+            "url_query_parameter": "NeverUsed_key1"
          }]
        }]
     },
