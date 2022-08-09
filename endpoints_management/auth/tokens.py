@@ -19,12 +19,12 @@ from __future__ import absolute_import
 from past.builtins import basestring
 from builtins import object
 import datetime
-#import jwkest
+import jwkest
 import time
 
 from dogpile import cache
-#from jwkest import jws
-#from jwkest import jwt
+from jwkest import jws
+from jwkest import jwt
 
 from . import suppliers
 

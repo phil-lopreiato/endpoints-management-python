@@ -16,7 +16,7 @@
 
 import json
 
-#from jwkest import jws
+from jwkest import jws
 
 
 def generate_auth_token(payload, keys, alg=u"ES256", kid=None):
