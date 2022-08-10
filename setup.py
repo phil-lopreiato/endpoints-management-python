@@ -30,17 +30,16 @@ with open('endpoints_management/__init__.py', 'r') as f:
         raise RuntimeError("No version number found!")
 
 install_requires = [
-    'backoff>=1.6.0',
-    'cachetools>=1.0.0',
-    "dogpile.cache>=0.6.1",
-    'enum34>=1.1.6',
-    'google-apitools>=0.5.21',
-    'oauth2client==3.0.0',
+    'backoff>=2.00',
+    'cachetools>=5.0.0',
+    "dogpile.cache>=1.0.1",
+    "google-cloud-monitoring>=2.10.0",
+    "google-cloud-service-control>=1.5.0",
+    "google-cloud-service-management>=1.3.0",
     "pylru>=1.0.9",
     "pyjwkest>=1.0.0",
     "requests>=2.10.0",
     'strict-rfc3339>=0.7',
-    'urllib3>=1.16',
     'webob>=1.7.4',
 ]
 
@@ -53,7 +52,7 @@ tests_require = [
 ]
 
 setup(
-    name='google-endpoints-api-management',
+    name='google-endpoints-api-management-tbafork',
     version=version,
     description='Google Endpoints API management',
     long_description=open('README.rst').read(),

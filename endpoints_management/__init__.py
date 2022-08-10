@@ -18,7 +18,7 @@ import logging
 
 from . import auth, config, control
 
-__version__ = '1.11.1'
+__version__ = '2.0.0.dev1'
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
