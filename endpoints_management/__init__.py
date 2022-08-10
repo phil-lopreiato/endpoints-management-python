@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 import logging
 
-from . import auth, config, control, gen
+from . import auth, config, control
 
 __version__ = '1.11.1'
 
@@ -26,4 +26,4 @@ _logger.setLevel(logging.INFO)
 USER_AGENT = u'ESP'
 SERVICE_AGENT = u'EF_PYTHON/' + __version__
 
-__all__ = ['auth', 'config', 'control', 'gen']
+__all__ = ['auth', 'config', 'control']

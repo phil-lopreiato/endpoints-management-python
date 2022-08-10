@@ -18,13 +18,16 @@ import datetime
 import json
 import os
 import tempfile
-import unittest2
+import unittest
 import urllib
 
-from apitools.base.py import encoding
 from expects import be_false, be_none, be_true, expect, equal, raise_error
+from google.api import service_pb2
+from google.api import label_pb2 as ga_label
+from google.api import log_pb2
+from google.protobuf.json_format import Parse
 
-from endpoints_management.control import service, sm_messages
+from endpoints_management.control import service
 
 
 _LOGGING_DESTINATIONS_INPUT = u"""
@@ -43,7 +46,7 @@ _LOGGING_DESTINATIONS_INPUT = u"""
     }]
   }],
 
-  "monitoredResources": [{
+  "monitored_resources": [{
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
@@ -53,13 +56,13 @@ _LOGGING_DESTINATIONS_INPUT = u"""
   }],
 
   "logging": {
-    "producerDestinations": [{
-      "monitoredResource": "bad-monitored-resource",
+    "producer_destinations": [{
+      "monitored_resource": "bad-monitored-resource",
       "logs": [
         "bad-monitored-resource-log"
       ]
     }, {
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "logs": [
         "bad-endpoints-log",
         "endpoints-log"
@@ -74,7 +77,7 @@ _LOGGING_DESTINATIONS_INPUT = u"""
 class _JsonServiceBase(object):
 
     def setUp(self):
-        self._subject = encoding.JsonToMessage(sm_messages.Service, self._INPUT)
+        self._subject = Parse(self._INPUT, service_pb2.Service())
 
     def _extract(self):
         return service.extract_report_spec(
@@ -87,7 +90,7 @@ class _JsonServiceBase(object):
         return service.MethodRegistry(self._subject)
 
 
-class TestLoggingDestinations(_JsonServiceBase, unittest2.TestCase):
+class TestLoggingDestinations(_JsonServiceBase, unittest.TestCase):
     _INPUT = _LOGGING_DESTINATIONS_INPUT
     _WANTED_LABELS = [
         u'supported/endpoints-log-label',
@@ -106,11 +109,11 @@ class TestLoggingDestinations(_JsonServiceBase, unittest2.TestCase):
         expect(set(labels)).to(equal(set(self._WANTED_LABELS)))
 
     def test_should_drop_conflicting_log_labels(self):
-        conflicting_label = sm_messages.LabelDescriptor(
+        conflicting_label = ga_label.LabelDescriptor(
             key=u'supported/endpoints-log-label',
-            valueType=sm_messages.LabelDescriptor.ValueTypeValueValuesEnum.BOOL
+            value_type=ga_label.LabelDescriptor.ValueType.BOOL
         )
-        bad_log_desc = sm_messages.LogDescriptor(
+        bad_log_desc = log_pb2.LogDescriptor(
             name=u'bad-endpoints-log',
             labels=[conflicting_label]
         )
@@ -141,25 +144,25 @@ _METRIC_DESTINATIONS_INPUTS = u"""
     }]
   }],
 
-  "monitoredResources": {
+  "monitored_resources": [{
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
     }, {
       "key": "supported/endpoints"
     }]
-  },
+  }],
 
   "monitoring": {
-    "consumerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "consumer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "metrics": [
         "supported/endpoints-metric",
         "unsupported/unsupported-endpoints-metric",
         "supported/unknown-metric"
       ]
     }, {
-      "monitoredResource": "endpoints.googleapis.com/non-existent",
+      "monitored_resource": "endpoints.googleapis.com/non-existent",
       "metrics": [
          "supported/endpoints-metric",
          "unsupported/unsupported-endpoints-metric",
@@ -172,7 +175,7 @@ _METRIC_DESTINATIONS_INPUTS = u"""
 
 """
 
-class TestMetricDestinations(_JsonServiceBase, unittest2.TestCase):
+class TestMetricDestinations(_JsonServiceBase, unittest.TestCase):
     _INPUT = _METRIC_DESTINATIONS_INPUTS
     _WANTED_METRICS = [
         u'supported/endpoints-metric']
@@ -198,14 +201,14 @@ _NOT_SUPPORTED_PREFIX = u'unsupported/'
 
 _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
 {
-  "logs": {
+  "logs": [{
     "name": "endpoints-log",
     "labels": [{
       "key": "supported/endpoints-log-label"
     }, {
       "key": "unsupported/endpoints-log-label"
     }]
-  },
+  }],
 
   "metrics": [{
     "name": "supported/endpoints-metric",
@@ -230,33 +233,33 @@ _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
     }]
   }],
 
-  "monitoredResources": {
+  "monitored_resources": [{
     "type": "endpoints.googleapis.com/endpoints",
     "labels": [{
       "key": "unsupported/endpoints"
     }, {
       "key": "supported/endpoints"
     }]
-  },
+  }],
 
   "logging": {
-    "producerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "producer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "logs": ["endpoints-log"]
     }]
   },
 
   "monitoring": {
-    "consumerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "consumer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "metrics": [
          "supported/endpoints-consumer-metric",
          "supported/endpoints-metric"
       ]
     }],
 
-    "producerDestinations": [{
-      "monitoredResource": "endpoints.googleapis.com/endpoints",
+    "producer_destinations": [{
+      "monitored_resource": "endpoints.googleapis.com/endpoints",
       "metrics": [
          "supported/endpoints-producer-metric",
          "supported/endpoints-metric"
@@ -267,7 +270,7 @@ _COMBINED_LOG_METRIC_LABEL_INPUTS = u"""
 
 """
 
-class TestCombinedExtraction(_JsonServiceBase, unittest2.TestCase):
+class TestCombinedExtraction(_JsonServiceBase, unittest.TestCase):
     _INPUT = _COMBINED_LOG_METRIC_LABEL_INPUTS
     _WANTED_METRICS = [
         u"supported/endpoints-metric",
@@ -307,7 +310,7 @@ _NO_NAME_SERVICE_CONFIG_TEST = """
 }
 """
 
-class TestBadServiceConfig(_JsonServiceBase, unittest2.TestCase):
+class TestBadServiceConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _NO_NAME_SERVICE_CONFIG_TEST
 
     def test_should_fail_if_service_is_bad(self):
@@ -326,7 +329,7 @@ _EMPTY_SERVICE_CONFIG_TEST = """
 }
 """
 
-class TestEmptyServiceConfig(_JsonServiceBase, unittest2.TestCase):
+class TestEmptyServiceConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _EMPTY_SERVICE_CONFIG_TEST
 
     def test_should_obtain_a_registry(self):
@@ -359,7 +362,7 @@ _BAD_HTTP_RULE_CONFIG_TEST = """
 }
 """
 
-class TestBadHttpRuleServiceConfig(_JsonServiceBase, unittest2.TestCase):
+class TestBadHttpRuleServiceConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _BAD_HTTP_RULE_CONFIG_TEST
 
     def test_lookup_should_return_none_for_unknown_uri(self):
@@ -382,13 +385,13 @@ _USAGE_CONFIG_TEST = """
     "usage": {
         "rules": [{
             "selector" : "Uvw.Method1",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }, {
             "selector" : "Uvw.Method2",
-            "allowUnregisteredCalls" : false
+            "allow_unregistered_calls" : false
         }, {
             "selector" : "Uvw.IgnoredMethod",
-            "allowUnregisteredCalls" : false
+            "allow_unregistered_calls" : false
         }]
     },
     "http": {
@@ -406,7 +409,7 @@ _USAGE_CONFIG_TEST = """
 }
 """
 
-class TestMethodRegistryUsageConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistryUsageConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _USAGE_CONFIG_TEST
 
     def test_should_detect_with_unregistered_calls_are_allowed(self):
@@ -434,31 +437,31 @@ class TestMethodRegistryUsageConfig(_JsonServiceBase, unittest2.TestCase):
 _SYSTEM_PARAMETER_CONFIG_TEST = u"""
 {
     "name": "system-parameter-config",
-    "systemParameters": {
+    "system_parameters": {
        "rules": [{
          "selector": "Uvw.Method1",
          "parameters": [{
             "name": "name1",
-            "httpHeader": "Header-Key1",
-            "urlQueryParameter": "param_key1"
+            "http_header": "Header-Key1",
+            "url_query_parameter": "param_key1"
          }, {
             "name": "name2",
-            "httpHeader": "Header-Key2",
-            "urlQueryParameter": "param_key2"
+            "http_header": "Header-Key2",
+            "url_query_parameter": "param_key2"
          }, {
             "name": "api_key",
-            "httpHeader": "ApiKeyHeader",
-            "urlQueryParameter": "ApiKeyParam"
+            "http_header": "ApiKeyHeader",
+            "url_query_parameter": "ApiKeyParam"
          }, {
-            "httpHeader": "Ignored-NoName-Key3",
-            "urlQueryParameter": "Ignored-NoName-key3"
+            "http_header": "Ignored-NoName-Key3",
+            "url_query_parameter": "Ignored-NoName-key3"
          }]
        }, {
          "selector": "Bad.NotConfigured",
          "parameters": [{
             "name": "neverUsed",
-            "httpHeader": "NeverUsed-Key1",
-            "urlQueryParameter": "NeverUsed_key1"
+            "http_header": "NeverUsed-Key1",
+            "url_query_parameter": "NeverUsed_key1"
          }]
        }]
     },
@@ -475,7 +478,7 @@ _SYSTEM_PARAMETER_CONFIG_TEST = u"""
 """
 
 
-class TestMethodRegistrySystemParameterConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistrySystemParameterConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _SYSTEM_PARAMETER_CONFIG_TEST
 
     def test_should_detect_registered_system_parameters(self):
@@ -537,7 +540,7 @@ _BOOKSTORE_CONFIG_TEST = b"""
 }
 """
 
-class TestMethodRegistryBookstoreConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistryBookstoreConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _BOOKSTORE_CONFIG_TEST
 
     def test_configures_list_shelves_ok(self):
@@ -583,7 +586,7 @@ _OPTIONS_SELECTOR_CONFIG_TEST = u"""
 }
 """
 
-class TestOptionsSelectorConfig(_JsonServiceBase, unittest2.TestCase):
+class TestOptionsSelectorConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _OPTIONS_SELECTOR_CONFIG_TEST
 
     def test_should_options_to_be_updated(self):
@@ -593,7 +596,7 @@ class TestOptionsSelectorConfig(_JsonServiceBase, unittest2.TestCase):
         expect(info.selector).to(equal(u'options-selector.OPTIONS.2'))
 
 
-class TestSimpleLoader(unittest2.TestCase):
+class TestSimpleLoader(unittest.TestCase):
 
     def test_should_load_service_ok(self):
         loaded = service.Loaders.SIMPLE.load()
@@ -604,7 +607,7 @@ class TestSimpleLoader(unittest2.TestCase):
         expect(info).not_to(be_none)
 
 
-class TestEnvironmentLoader(unittest2.TestCase):
+class TestEnvironmentLoader(unittest.TestCase):
 
     def setUp(self):
         _config_fd = tempfile.NamedTemporaryFile(delete=False)
@@ -648,7 +651,7 @@ _AUTHENTICATION_CONFIG_TEST = u"""
         "rules": [{
             "selector": "Bookstore.ListShelves",
             "requirements": [{
-                "providerId": "shelves-provider",
+                "provider_id": "shelves-provider",
                 "audiences": "aud1,aud2"
             }]
         }]
@@ -675,7 +678,7 @@ _AUTHENTICATION_CONFIG_TEST = u"""
 }
 """
 
-class TestAuthenticationConfig(_JsonServiceBase, unittest2.TestCase):
+class TestAuthenticationConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _AUTHENTICATION_CONFIG_TEST
 
     def test_lookup_method_with_authentication(self):
@@ -719,7 +722,7 @@ _QUOTA_CONFIG_TEST = u"""
                 }
             }
         ],
-        "metricRules": [
+        "metric_rules": [
             {
                 "metricCosts": {
                     "example-list-requests": "1",
@@ -733,12 +736,12 @@ _QUOTA_CONFIG_TEST = u"""
         {
             "metricKind": "GAUGE",
             "name": "example-read-requests",
-            "valueType": "INT64"
+            "value_type": "INT64"
         },
         {
             "metricKind": "GAUGE",
             "name": "example-list-requests",
-            "valueType": "INT64"
+            "value_type": "INT64"
         }
     ],
     "http": {
@@ -756,7 +759,7 @@ _QUOTA_CONFIG_TEST = u"""
 }
 """
 
-class TestQuotaConfig(_JsonServiceBase, unittest2.TestCase):
+class TestQuotaConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _QUOTA_CONFIG_TEST
 
     def test_quota_info(self):
@@ -791,18 +794,18 @@ _CUSTOM_METHOD_CONFIG_TEST = b"""
 }
 """
 
-class TestMethodRegistryCustomMethodConfig(_JsonServiceBase, unittest2.TestCase):
+class TestMethodRegistryCustomMethodConfig(_JsonServiceBase, unittest.TestCase):
     _INPUT = _CUSTOM_METHOD_CONFIG_TEST
     def test_configures_custom_method(self):
         registry = self._get_registry()
-        url = urllib.quote(u'/shelves/88:lock')  # custom methods come in percent-encoded
+        url = urllib.parse.quote(u'/shelves/88:lock')  # custom methods come in percent-encoded
         info = registry.lookup(u'POST', url)
         assert info is not None
         assert info.selector == 'Bookstore.LockShelf'
 
     def test_other_characters_still_quoted(self):
         registry = self._get_registry()
-        shelf = urllib.quote('A/Z', safe='')
+        shelf = urllib.parse.quote('A/Z', safe='')
         assert '/' not in shelf
         url = '/shelves/{}/books'.format(shelf)
         info = registry.lookup(u'POST', url)

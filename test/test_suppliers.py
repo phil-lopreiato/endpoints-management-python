@@ -15,9 +15,9 @@
 import json
 import unittest
 import httmock
-import mock
+from unittest import mock
 
-from Crypto import PublicKey
+from Cryptodome import PublicKey
 from jwkest import jwk
 
 from endpoints_management.auth import suppliers

@@ -16,7 +16,7 @@ from __future__ import absolute_import
 
 import collections
 import datetime
-import unittest2
+import unittest
 
 from expects import be, be_a, be_none, equal, expect, raise_error
 
@@ -26,7 +26,7 @@ from endpoints_management.control import caches, report_request
 _TEST_NUM_ENTRIES = 3  # arbitrary
 
 
-class TestDequeOutLRUCache(unittest2.TestCase):
+class TestDequeOutLRUCache(unittest.TestCase):
 
     def test_constructor_should_set_up_a_default_deque(self):
         c = caches.DequeOutLRUCache(_TEST_NUM_ENTRIES)
@@ -75,7 +75,7 @@ class _Timer(object):
 _TEST_TTL = 3  # arbitrary
 
 
-class TestDequeOutTTLCache(unittest2.TestCase):
+class TestDequeOutTTLCache(unittest.TestCase):
     # pylint: disable=fixme
     #
     # TODO: add a ttl test based on the one in cachetools testsuite
@@ -111,9 +111,9 @@ class TestDequeOutTTLCache(unittest2.TestCase):
         expect(len(cache.out_deque)).to(be(2))
 
     def test_ttl(self):
-        cache = caches.DequeOutTTLCache(2, ttl=1, timer=_Timer())
+        cache = caches.DequeOutTTLCache(2, ttl=2, timer=_Timer())
         expect(cache.timer()).to(equal(0))
-        expect(cache.ttl).to(equal(1))
+        expect(cache.ttl).to(equal(2))
 
         cache[1] = 1
         expect(set(cache)).to(equal({1}))
@@ -152,7 +152,7 @@ class _DateTimeTimer(object):
         self.time += datetime.timedelta(seconds=1)
 
 
-class TestCreate(unittest2.TestCase):
+class TestCreate(unittest.TestCase):
 
     def test_should_fail_if_bad_options_are_used(self):
         should_fail = [
@@ -197,7 +197,6 @@ class TestCreate(unittest2.TestCase):
                 expect(set(cache)).to(equal({1}))
                 expect(cache.get(1)).to(equal(1))
                 timer.tick()
-                expect(cache.get(1)).to(equal(1))
                 timer.tick()
                 expect(cache.get(1)).to(be_none)
 
@@ -223,7 +222,7 @@ class TestCreate(unittest2.TestCase):
                 expect(cache).to(be_a(caches.DequeOutLRUCache))
 
 
-class TestReportOptions(unittest2.TestCase):
+class TestReportOptions(unittest.TestCase):
 
     def test_should_create_with_defaults(self):
         options = caches.ReportOptions()
@@ -233,7 +232,7 @@ class TestReportOptions(unittest2.TestCase):
             caches.ReportOptions.DEFAULT_FLUSH_INTERVAL))
 
 
-class TestCheckOptions(unittest2.TestCase):
+class TestCheckOptions(unittest.TestCase):
     AN_INTERVAL = datetime.timedelta(milliseconds=2)
     A_LOWER_INTERVAL = datetime.timedelta(milliseconds=1)
 

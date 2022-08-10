@@ -15,27 +15,26 @@
 from __future__ import absolute_import
 
 import datetime
-import httplib
-import unittest2
-import mock
+import http.client as httplib
+import unittest
 from operator import attrgetter
 from expects import be, be_none, be_true, be_false, equal, expect, raise_error
+from unittest import mock
 
-from apitools.base.py import encoding
+from google.cloud import servicecontrol as sc_messages
 
 from endpoints_management.control import caches, label_descriptor, timestamp
-from endpoints_management.control import (quota_request, metric_value,
-                                          sc_messages)
+from endpoints_management.control import (quota_request, metric_value)
 
 
-class TestSign(unittest2.TestCase):
+class TestSign(unittest.TestCase):
 
     def setUp(self):
         op = sc_messages.QuotaOperation(
-            consumerId=_TEST_CONSUMER_ID,
-            methodName=_TEST_OP_NAME
+            consumer_id=_TEST_CONSUMER_ID,
+            method_name=_TEST_OP_NAME
         )
-        self.test_quota_request = sc_messages.AllocateQuotaRequest(allocateOperation=op)
+        self.test_quota_request = sc_messages.AllocateQuotaRequest(allocate_operation=op)
         self.test_op = op
 
     def test_should_fail_if_operation_is_not_set(self):
@@ -49,15 +48,15 @@ class TestSign(unittest2.TestCase):
         expect(testf).to(raise_error(ValueError))
 
     def test_should_fail_if_operation_has_no_method_name(self):
-        op = sc_messages.QuotaOperation(consumerId=_TEST_CONSUMER_ID)
+        op = sc_messages.QuotaOperation(consumer_id=_TEST_CONSUMER_ID)
         testf = lambda: quota_request.sign(
-            sc_messages.AllocateQuotaRequest(allocateOperation=op))
+            sc_messages.AllocateQuotaRequest(allocate_operation=op))
         expect(testf).to(raise_error(ValueError))
 
     def test_should_fail_if_operation_has_no_consumer_id(self):
-        op = sc_messages.QuotaOperation(methodName=_TEST_OP_NAME)
+        op = sc_messages.QuotaOperation(method_name=_TEST_OP_NAME)
         testf = lambda: quota_request.sign(
-            sc_messages.AllocateQuotaRequest(allocateOperation=op))
+            sc_messages.AllocateQuotaRequest(allocate_operation=op))
         expect(testf).to(raise_error(ValueError))
 
     def test_should_sign_a_valid_quota_request(self):
@@ -65,33 +64,34 @@ class TestSign(unittest2.TestCase):
 
     def test_should_change_signature_when_labels_are_added(self):
         without_labels = quota_request.sign(self.test_quota_request)
-        self.test_op.labels = encoding.PyValueToMessage(
-            sc_messages.QuotaOperation.LabelsValue, {
-                u'key1': u'value1',
-                u'key2': u'value2'})
+        self.test_op.labels = {
+            u'key1': u'value1',
+            u'key2': u'value2'}
+        self.test_quota_request.allocate_operation = self.test_op
         with_labels = quota_request.sign(self.test_quota_request)
         expect(with_labels).not_to(equal(without_labels))
 
     def test_should_change_signature_when_metric_values_are_added(self):
         without_mvs = quota_request.sign(self.test_quota_request)
-        self.test_op.quotaMetrics = [
+        self.test_op.quota_metrics = [
             sc_messages.MetricValueSet(
-                metricName=u'a_float',
-                metricValues=[
+                metric_name=u'a_float',
+                metric_values=[
                     metric_value.create(
                         labels={
                             u'key1': u'value1',
                             u'key2': u'value2'},
-                        doubleValue=1.1,
+                        double_value=1.1,
                     ),
                 ]
             )
         ]
+        self.test_quota_request.allocate_operation = self.test_op
         with_mvs = quota_request.sign(self.test_quota_request)
         expect(with_mvs).not_to(equal(without_mvs))
 
 
-class TestAggregatorQuota(unittest2.TestCase):
+class TestAggregatorQuota(unittest.TestCase):
     SERVICE_NAME = u'service.quota'
     FAKE_OPERATION_ID = u'service.general.quota'
 
@@ -112,28 +112,26 @@ class TestAggregatorQuota(unittest2.TestCase):
         expect(testf).to(raise_error(ValueError))
 
     def test_should_fail_if_quota_request_is_missing(self):
-        req = sc_messages.ServicecontrolServicesAllocateQuotaRequest(
-            serviceName=self.SERVICE_NAME)
+        req = sc_messages.AllocateQuotaRequest(
+            service_name=self.SERVICE_NAME)
         testf = lambda: self.agg.allocate_quota(req)
         expect(testf).to(raise_error(ValueError))
 
     def test_should_fail_if_operation_is_missing(self):
-        req = sc_messages.ServicecontrolServicesAllocateQuotaRequest(
-            serviceName=self.SERVICE_NAME,
-            allocateQuotaRequest=sc_messages.AllocateQuotaRequest())
+        req = sc_messages.AllocateQuotaRequest(service_name=self.SERVICE_NAME)
         testf = lambda: self.agg.allocate_quota(req)
         expect(testf).to(raise_error(ValueError))
 
     def test_should_return_none_initially_as_req_is_not_cached(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
         fake_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg = self.agg
         actual = agg.allocate_quota(req)
         expect(actual).to(equal(fake_response))
 
 
-class TestAggregatorThatCannotCache(unittest2.TestCase):
+class TestAggregatorThatCannotCache(unittest.TestCase):
     SERVICE_NAME = u'service.no_cache'
     FAKE_OPERATION_ID = u'service.no_cache.op_id'
 
@@ -146,7 +144,7 @@ class TestAggregatorThatCannotCache(unittest2.TestCase):
     def test_should_not_cache_responses(self):
         req = _make_test_request(self.SERVICE_NAME)
         fake_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg = self.agg
         expect(agg.allocate_quota(req)).to(be_none)
         agg.add_response(req, fake_response)
@@ -162,7 +160,7 @@ class TestAggregatorThatCannotCache(unittest2.TestCase):
 
 
 
-class TestCachingAggregator(unittest2.TestCase):
+class TestCachingAggregator(unittest.TestCase):
     SERVICE_NAME = u'service.with_cache'
     FAKE_OPERATION_ID = u'service.with_cache.op_id'
 
@@ -182,17 +180,17 @@ class TestCachingAggregator(unittest2.TestCase):
     def test_should_cache_responses(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
         temp_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         real_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID,
-            quotaMetrics=[sc_messages.MetricValueSet(
-                metricName=u'a_float',
-                metricValues=[
+            operation_id=self.FAKE_OPERATION_ID,
+            quota_metrics=[sc_messages.MetricValueSet(
+                metric_name=u'a_float',
+                metric_values=[
                     metric_value.create(
                         labels={
                             u'key1': u'value1',
                             u'key2': u'value2'},
-                        doubleValue=1.1,
+                        double_value=1.1,
                     ),
                 ]
             )]
@@ -205,24 +203,24 @@ class TestCachingAggregator(unittest2.TestCase):
     def test_should_update_temp_response_with_actual(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
         temp_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         real_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID,
-            quotaMetrics=[sc_messages.MetricValueSet(
-                metricName=u'a_float',
-                metricValues=[
+            operation_id=self.FAKE_OPERATION_ID,
+            quota_metrics=[sc_messages.MetricValueSet(
+                metric_name=u'a_float',
+                metric_values=[
                     metric_value.create(
                         labels={
                             u'key1': u'value1',
                             u'key2': u'value2'},
-                        doubleValue=1.1,
+                        double_value=1.1,
                     ),
                 ]
             )]
         )
         agg = self.agg
         agg.allocate_quota(req)
-        signature = quota_request.sign(req.allocateQuotaRequest)
+        signature = quota_request.sign(req)
         with agg._cache as cache:
             item = cache[signature]
             expect(item.response).to(equal(temp_response))
@@ -234,7 +232,7 @@ class TestCachingAggregator(unittest2.TestCase):
 
     def test_request_aggregation(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
-        signature = quota_request.sign(req.allocateQuotaRequest)
+        signature = quota_request.sign(req)
         agg = self.agg
         agg.allocate_quota(req)
         with agg._cache as cache:
@@ -250,12 +248,12 @@ class TestCachingAggregator(unittest2.TestCase):
 
     def test_aggregated_requests_should_be_sent_on_flush(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
-        signature = quota_request.sign(req.allocateQuotaRequest)
+        signature = quota_request.sign(req)
         agg = self.agg
         agg.allocate_quota(req)
         expect(len(agg.flush())).to(equal(1))  # initial request
         simple_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         agg.add_response(req, simple_response)
         agg.allocate_quota(req)
         agg.allocate_quota(req)
@@ -264,17 +262,17 @@ class TestCachingAggregator(unittest2.TestCase):
     def test_expiration(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
         temp_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         real_response = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID,
-            quotaMetrics=[sc_messages.MetricValueSet(
-                metricName=u'a_float',
-                metricValues=[
+            operation_id=self.FAKE_OPERATION_ID,
+            quota_metrics=[sc_messages.MetricValueSet(
+                metric_name=u'a_float',
+                metric_values=[
                     metric_value.create(
                         labels={
                             u'key1': u'value1',
                             u'key2': u'value2'},
-                        doubleValue=1.1,
+                        double_value=1.1,
                     ),
                 ]
             )]
@@ -283,11 +281,10 @@ class TestCachingAggregator(unittest2.TestCase):
         agg.allocate_quota(req)
         assert len(agg.flush()) == 1
         agg.add_response(req, real_response)
-        signature = quota_request.sign(req.allocateQuotaRequest)
+        signature = quota_request.sign(req)
         with agg._cache as cache, agg._out as out:
             assert len(out) == 0
             assert signature in cache
-            self.timer.tick()
             self.timer.tick()
             assert len(agg.flush()) == 0
             assert len(out) == 0
@@ -298,61 +295,61 @@ class TestCachingAggregator(unittest2.TestCase):
             assert signature not in cache
 
 
-class TestCacheItem(unittest2.TestCase):
+class TestCacheItem(unittest.TestCase):
     SERVICE_NAME = u'service.quota'
     FAKE_OPERATION_ID = u'service.general.quota'
 
     def test_request_aggregation(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
-        req = req.allocateQuotaRequest
         resp = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         item = quota_request.CachedItem(req, resp, self.SERVICE_NAME, None)
         expect(item._op_aggregator).to(be_none)
         with mock.patch.object(quota_request, 'QuotaOperationAggregator') as QOA:
             agg = QOA.return_value
             item.aggregate(req)
             expect(item._op_aggregator).to(be(agg))
-            QOA.assert_called_once_with(req.allocateOperation)
+            QOA.assert_called_once_with(req.allocate_operation)
             item.aggregate(req)
-            agg.merge_operation.assert_called_once_with(req.allocateOperation)
+            agg.merge_operation.assert_called_once_with(req.allocate_operation)
 
     def test_request_extraction_no_aggregation(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
-        a_req = req.allocateQuotaRequest
+        a_req = req
         resp = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         item = quota_request.CachedItem(a_req, resp, self.SERVICE_NAME, None)
         expect(item._op_aggregator).to(be_none)
         expect(item.extract_request()).to(equal(req))
 
     def test_request_extraction_with_aggregation(self):
         req = _make_test_request(self.SERVICE_NAME, self.FAKE_OPERATION_ID)
-        req = req.allocateQuotaRequest
-        req.allocateOperation.quotaMetrics = [
+        req.allocate_operation.quota_metrics = [
             sc_messages.MetricValueSet(
-                metricName=u'a_float',
-                metricValues=[
+                metric_name=u'a_float',
+                metric_values=[
                     metric_value.create(
                         labels={
                             u'key1': u'value1',
                             u'key2': u'value2'},
-                        int64Value=12,
+                        int64_value=12,
                     ),
                 ]
             )
         ]
 
         resp = sc_messages.AllocateQuotaResponse(
-            operationId=self.FAKE_OPERATION_ID)
+            operation_id=self.FAKE_OPERATION_ID)
         item = quota_request.CachedItem(req, resp, self.SERVICE_NAME, None)
         expect(item._op_aggregator).to(be_none)
         item.aggregate(req)
         item.aggregate(req)
 
+        print(f"AGG {item._op_aggregator.metric_value_sets}")
+
         extracted = item.extract_request()
-        op = extracted.allocateQuotaRequest.allocateOperation
-        expect(op.quotaMetrics[0].metricValues[0].int64Value).to(equal(24))
+        op = extracted.allocate_operation
+        expect(op.quota_metrics[0].metric_values[0].int64_value).to(equal(24))
 
 
 _TEST_CONSUMER_ID = u'testConsumerID'
@@ -361,16 +358,13 @@ _TEST_OP_NAME = u'testOperationName'
 
 def _make_test_request(service_name, operation_id=None, importance=None):
     if importance is None:
-        importance = sc_messages.Operation.ImportanceValueValuesEnum.LOW
+        importance = sc_messages.Operation.Importance.LOW
     op = sc_messages.QuotaOperation(
-        consumerId=_TEST_CONSUMER_ID,
-        methodName=_TEST_OP_NAME,
-        operationId=operation_id,
+        consumer_id=_TEST_CONSUMER_ID,
+        method_name=_TEST_OP_NAME,
+        operation_id=operation_id,
     )
-    quota_request = sc_messages.AllocateQuotaRequest(allocateOperation=op)
-    return sc_messages.ServicecontrolServicesAllocateQuotaRequest(
-        serviceName=service_name,
-        allocateQuotaRequest=quota_request)
+    return sc_messages.AllocateQuotaRequest(service_name=service_name, allocate_operation=op)
 
 
 _WANTED_USER_AGENT = label_descriptor.USER_AGENT
@@ -384,13 +378,12 @@ _INFO_TESTS = [
         referer=u'a_referer',
         service_name=_TEST_SERVICE_NAME),
      sc_messages.QuotaOperation(
-         labels = encoding.PyValueToMessage(
-             sc_messages.QuotaOperation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/referer': u'a_referer',
-             }),
-         operationId=u'an_op_id',
-         methodName=u'an_op_name',
-         quotaMode=sc_messages.QuotaOperation.QuotaModeValueValuesEnum.BEST_EFFORT)),
+         labels = {
+             u'servicecontrol.googleapis.com/referer': u'a_referer',
+         },
+         operation_id=u'an_op_id',
+         method_name=u'an_op_name',
+         quota_mode=sc_messages.QuotaOperation.QuotaMode.BEST_EFFORT)),
     (quota_request.Info(
         android_cert_fingerprint=u'an_android_cert_fingerprint',
         android_package_name=u'an_android_package_name',
@@ -402,14 +395,13 @@ _INFO_TESTS = [
         referer=u'a_referer',
         service_name=_TEST_SERVICE_NAME),
      sc_messages.QuotaOperation(
-         consumerId=u'api_key:an_api_key',
-         labels = encoding.PyValueToMessage(
-             sc_messages.QuotaOperation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/referer': u'a_referer',
-             }),
-         operationId=u'an_op_id',
-         methodName=u'an_op_name',
-         quotaMode=sc_messages.QuotaOperation.QuotaModeValueValuesEnum.BEST_EFFORT)),
+         consumer_id=u'api_key:an_api_key',
+         labels = {
+            u'servicecontrol.googleapis.com/referer': u'a_referer',
+         },
+         operation_id=u'an_op_id',
+         method_name=u'an_op_name',
+         quota_mode=sc_messages.QuotaOperation.QuotaMode.BEST_EFFORT)),
     (quota_request.Info(
         api_key=u'an_api_key',
         api_key_valid=False,
@@ -420,15 +412,14 @@ _INFO_TESTS = [
         referer=u'a_referer',
         service_name=_TEST_SERVICE_NAME),
      sc_messages.QuotaOperation(
-         consumerId=u'project:project_id',
-         labels = encoding.PyValueToMessage(
-             sc_messages.QuotaOperation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/caller_ip': u'127.0.0.1',
-                 u'servicecontrol.googleapis.com/referer': u'a_referer',
-             }),
-         operationId=u'an_op_id',
-         methodName=u'an_op_name',
-         quotaMode=sc_messages.QuotaOperation.QuotaModeValueValuesEnum.BEST_EFFORT)),
+         consumer_id=u'project:project_id',
+         labels = {
+             u'servicecontrol.googleapis.com/caller_ip': u'127.0.0.1',
+             u'servicecontrol.googleapis.com/referer': u'a_referer',
+         },
+         operation_id=u'an_op_id',
+         method_name=u'an_op_name',
+         quota_mode=sc_messages.QuotaOperation.QuotaMode.BEST_EFFORT)),
 ]
 _INCOMPLETE_INFO_TESTS = [
     quota_request.Info(
@@ -445,7 +436,7 @@ _INCOMPLETE_INFO_TESTS = [
 KEYGETTER = attrgetter(u'key')
 
 
-class TestInfo(unittest2.TestCase):
+class TestInfo(unittest.TestCase):
     def test_should_construct_with_no_args(self):
         expect(quota_request.Info()).not_to(be_none)
 
@@ -454,10 +445,8 @@ class TestInfo(unittest2.TestCase):
         for info, want in _INFO_TESTS:
             got = info.as_allocate_quota_request(timer=timer)
             # These additional properties have no well-defined order, so sort them.
-            got.allocateQuotaRequest.allocateOperation.labels.additionalProperties.sort(key=KEYGETTER)
-            want.labels.additionalProperties.sort(key=KEYGETTER)
-            expect(got.allocateQuotaRequest.allocateOperation).to(equal(want))
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
+            expect(got.allocate_operation).to(equal(want))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
 
     def test_should_fail_as_quota_request_on_incomplete_info(self):
         timer = _DateTimeTimer()
@@ -466,7 +455,7 @@ class TestInfo(unittest2.TestCase):
             expect(testf).to(raise_error(ValueError))
 
 
-class TestConvertResponse(unittest2.TestCase):
+class TestConvertResponse(unittest.TestCase):
     PROJECT_ID = u'test_convert_response'
 
     def test_should_be_ok_with_no_errors(self):
@@ -477,9 +466,9 @@ class TestConvertResponse(unittest2.TestCase):
 
     def test_should_include_project_id_in_error_text_when_needed(self):
         resp = sc_messages.AllocateQuotaResponse(
-            allocateErrors = [
+            allocate_errors=[
                 sc_messages.QuotaError(
-                    code=sc_messages.QuotaError.CodeValueValuesEnum.PROJECT_DELETED)
+                    code=sc_messages.QuotaError.Code.PROJECT_DELETED)
             ]
         )
         code, got = quota_request.convert_response(resp, self.PROJECT_ID)
@@ -490,9 +479,9 @@ class TestConvertResponse(unittest2.TestCase):
     def test_should_include_detail_in_error_text_when_needed(self):
         detail = u'details, details, details'
         resp = sc_messages.AllocateQuotaResponse(
-            allocateErrors = [
+            allocate_errors=[
                 sc_messages.QuotaError(
-                    code=sc_messages.QuotaError.CodeValueValuesEnum.OUT_OF_RANGE,
+                    code=100,
                     description=detail)
             ]
         )

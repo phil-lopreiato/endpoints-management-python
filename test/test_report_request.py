@@ -16,19 +16,22 @@ from __future__ import absolute_import
 
 import datetime
 import time
-import unittest2
+import unittest
 from operator import attrgetter
 from expects import be_none, equal, expect, raise_error
 
-from apitools.base.py import encoding
+from google.cloud import servicecontrol as sc_messages
+from google.logging.type import log_severity_pb2
+from google.protobuf import struct_pb2, timestamp_pb2
+from google.protobuf.json_format import ParseDict, MessageToDict
 
 from endpoints_management.control import (caches, label_descriptor,
-                                          metric_value, sc_messages,
+                                          metric_value,
                                           metric_descriptor, report_request,
                                           timestamp)
 
 
-class TestReportingRules(unittest2.TestCase):
+class TestReportingRules(unittest.TestCase):
     subject_cls = report_request.ReportingRules
     WANTED_LABELS = (label_descriptor.KnownLabels.REFERER,)
     WANTED_METRICS = (metric_descriptor.KnownMetrics.CONSUMER_REQUEST_COUNT,)
@@ -80,11 +83,13 @@ _START_OF_EPOCH_TIMESTAMP = timestamp.to_rfc3339(_START_OF_EPOCH)
 _TEST_SERVICE_NAME = u'a_service_name'
 _TEST_SIZE=1
 _TEST_LATENCY=datetime.timedelta(seconds=7)
+_EPOCH_TIMESTAMP_PB = timestamp_pb2.Timestamp().FromJsonString(_START_OF_EPOCH_TIMESTAMP)
+
 _EXPECTED_OK_LOG_ENTRY = sc_messages.LogEntry(
     name = u'endpoints-log',
-    severity = sc_messages.LogEntry.SeverityValueValuesEnum.INFO,
-    structPayload=encoding.PyValueToMessage(
-        sc_messages.LogEntry.StructPayloadValue, {
+    severity = log_severity_pb2.LogSeverity.INFO,
+    struct_payload=ParseDict(
+        {
             u'http_response_code': 200,
             u'http_method': u'GET',
             u'request_latency_in_ms': 7000.0,
@@ -92,14 +97,15 @@ _EXPECTED_OK_LOG_ENTRY = sc_messages.LogEntry(
             u'response_size': 1,
             u'request_size': 1,
             u'referer': u'a_referer',
-        }),
-    timestamp=_START_OF_EPOCH_TIMESTAMP
+        },
+        struct_pb2.Struct()),
+    timestamp=_EPOCH_TIMESTAMP_PB,
 )
 _EXPECTED_NOK_LOG_ENTRY = sc_messages.LogEntry(
     name = u'endpoints-log',
-    severity = sc_messages.LogEntry.SeverityValueValuesEnum.ERROR,
-    structPayload=encoding.PyValueToMessage(
-        sc_messages.LogEntry.StructPayloadValue, {
+    severity = log_severity_pb2.LogSeverity.ERROR,
+    struct_payload=ParseDict(
+        {
             u'http_response_code': 404,
             u'http_method': u'GET',
             u'request_latency_in_ms': 7000.0,
@@ -108,8 +114,9 @@ _EXPECTED_NOK_LOG_ENTRY = sc_messages.LogEntry(
             u'request_size': 1,
             u'referer': u'a_referer',
             u'error_cause': u'internal',
-        }),
-    timestamp=_START_OF_EPOCH_TIMESTAMP
+        },
+        struct_pb2.Struct()),
+    timestamp=_EPOCH_TIMESTAMP_PB,
 )
 
 _WANTED_USER_AGENT = label_descriptor.USER_AGENT
@@ -131,12 +138,12 @@ _ADD_LOG_TESTS = [
         response_size=_TEST_SIZE,
         service_name=_TEST_SERVICE_NAME),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         logEntries=[_EXPECTED_OK_LOG_ENTRY],
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH_TIMESTAMP,
-         endTime=_START_OF_EPOCH_TIMESTAMP)
+         importance=sc_messages.Operation.Importance.LOW,
+         log_entries=[_EXPECTED_OK_LOG_ENTRY],
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_EPOCH_TIMESTAMP_PB,
+         end_time=_EPOCH_TIMESTAMP_PB)
     ),
     (report_request.Info(
         response_code=404,
@@ -151,12 +158,12 @@ _ADD_LOG_TESTS = [
         response_size=_TEST_SIZE,
         service_name=_TEST_SERVICE_NAME),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         logEntries=[_EXPECTED_NOK_LOG_ENTRY],
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH_TIMESTAMP,
-         endTime=_START_OF_EPOCH_TIMESTAMP)
+         importance=sc_messages.Operation.Importance.LOW,
+         log_entries=[_EXPECTED_NOK_LOG_ENTRY],
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_EPOCH_TIMESTAMP_PB,
+         end_time=_EPOCH_TIMESTAMP_PB)
     )
 ]
 
@@ -176,30 +183,29 @@ _ADD_METRICS_TESTS = [
         api_key=_TEST_API_KEY,
         api_key_valid=True),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         logEntries=[],
-         labels=encoding.PyValueToMessage(
-             sc_messages.Operation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/service_agent':
-                     _WANTED_SERVICE_AGENT,
-                 u'servicecontrol.googleapis.com/user_agent':
-                     _WANTED_USER_AGENT,
-                 u'servicecontrol.googleapis.com/platform':
-                     _WANTED_PLATFORM,
-             }),
-         metricValueSets = [
+         importance=sc_messages.Operation.Importance.LOW,
+         log_entries=[],
+         labels={
+             u'servicecontrol.googleapis.com/service_agent':
+                 _WANTED_SERVICE_AGENT,
+             u'servicecontrol.googleapis.com/user_agent':
+                 _WANTED_USER_AGENT,
+             u'servicecontrol.googleapis.com/platform':
+                 _WANTED_PLATFORM,
+         },
+         metric_value_sets= [
              sc_messages.MetricValueSet(
-                 metricName=_EXPECTED_OK_METRIC.metric_name,
-                 metricValues=[
-                     metric_value.create(int64Value=1),
+                 metric_name=_EXPECTED_OK_METRIC.metric_name,
+                 metric_values=[
+                     metric_value.create(int64_value=1),
                  ]
              ),
          ],
-         consumerId=u'api_key:' + _TEST_API_KEY,
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH_TIMESTAMP,
-         endTime=_START_OF_EPOCH_TIMESTAMP)
+         consumer_id=u'api_key:' + _TEST_API_KEY,
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_EPOCH_TIMESTAMP_PB,
+         end_time=_EPOCH_TIMESTAMP_PB)
     ),
     (report_request.Info(
         response_code=404,
@@ -216,36 +222,35 @@ _ADD_METRICS_TESTS = [
         api_key=_TEST_API_KEY,
         api_key_valid=True),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         logEntries=[],
-         labels=encoding.PyValueToMessage(
-             sc_messages.Operation.LabelsValue, {
-                 u'servicecontrol.googleapis.com/service_agent':
-                     _WANTED_SERVICE_AGENT,
-                 u'servicecontrol.googleapis.com/user_agent':
-                     _WANTED_USER_AGENT,
-                 u'servicecontrol.googleapis.com/platform':
-                     _WANTED_PLATFORM,
-             }),
-         metricValueSets = [
+         importance=sc_messages.Operation.Importance.LOW,
+         log_entries=[],
+         labels={
+             u'servicecontrol.googleapis.com/service_agent':
+                 _WANTED_SERVICE_AGENT,
+             u'servicecontrol.googleapis.com/user_agent':
+                 _WANTED_USER_AGENT,
+             u'servicecontrol.googleapis.com/platform':
+                 _WANTED_PLATFORM,
+         },
+         metric_value_sets= [
              sc_messages.MetricValueSet(
-                 metricName=_EXPECTED_OK_METRIC.metric_name,
-                 metricValues=[
-                     metric_value.create(int64Value=1),
+                 metric_name=_EXPECTED_OK_METRIC.metric_name,
+                 metric_values=[
+                     metric_value.create(int64_value=1),
                  ]
              ),
              sc_messages.MetricValueSet(
-                 metricName=_EXPECTED_NOK_METRIC.metric_name,
-                 metricValues=[
-                     metric_value.create(int64Value=1),
+                 metric_name=_EXPECTED_NOK_METRIC.metric_name,
+                 metric_values=[
+                     metric_value.create(int64_value=1),
                  ]
              ),
          ],
-         consumerId=u'api_key:' + _TEST_API_KEY,
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH_TIMESTAMP,
-         endTime=_START_OF_EPOCH_TIMESTAMP)
+         consumer_id=u'api_key:' + _TEST_API_KEY,
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_EPOCH_TIMESTAMP_PB,
+         end_time=_EPOCH_TIMESTAMP_PB)
     ),
 ]
 
@@ -258,30 +263,29 @@ _ADD_LABELS_TESTS = [
         referer=u'a_referer',
         service_name=_TEST_SERVICE_NAME),
      sc_messages.Operation(
-         importance=sc_messages.Operation.ImportanceValueValuesEnum.LOW,
-         labels=encoding.PyValueToMessage(
-             sc_messages.Operation.LabelsValue, {
-                 _EXPECTED_OK_LABEL.label_name: u'a_referer',
-                 u'servicecontrol.googleapis.com/service_agent':
-                     _WANTED_SERVICE_AGENT,
-                 u'servicecontrol.googleapis.com/user_agent':
-                     _WANTED_USER_AGENT,
-                 u'servicecontrol.googleapis.com/platform':
-                     _WANTED_PLATFORM,
+         importance=sc_messages.Operation.Importance.LOW,
+         labels={
+             _EXPECTED_OK_LABEL.label_name: u'a_referer',
+             u'servicecontrol.googleapis.com/service_agent':
+                 _WANTED_SERVICE_AGENT,
+             u'servicecontrol.googleapis.com/user_agent':
+                 _WANTED_USER_AGENT,
+             u'servicecontrol.googleapis.com/platform':
+                 _WANTED_PLATFORM,
 
-             }),
-         logEntries=[],
-         operationId=u'an_op_id',
-         operationName=u'an_op_name',
-         startTime=_START_OF_EPOCH_TIMESTAMP,
-         endTime=_START_OF_EPOCH_TIMESTAMP)
+         },
+         log_entries=[],
+         operation_id=u'an_op_id',
+         operation_name=u'an_op_name',
+         start_time=_EPOCH_TIMESTAMP_PB,
+         end_time=_EPOCH_TIMESTAMP_PB)
     ),
 ]
 
 KEYGETTER = attrgetter(u'key')
 
 
-class TestInfo(unittest2.TestCase):
+class TestInfo(unittest.TestCase):
 
     def test_should_construct_with_no_args(self):
         expect(report_request.Info()).not_to(be_none)
@@ -335,20 +339,17 @@ class TestInfo(unittest2.TestCase):
         rules = report_request.ReportingRules(logs=[u'endpoints-log'])
         for info, want in _ADD_LOG_TESTS:
             got = info.as_report_request(rules, timer=timer)
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
             # compare the log entry in detail to avoid instability when
             # comparing the operations directly
-            wantLogEntry = want.logEntries[0]
-            gotLogEntry = got.reportRequest.operations[0].logEntries[0]
+            wantLogEntry = want.log_entries[0]
+            gotLogEntry = got.operations[0].log_entries[0]
             expect(gotLogEntry.name).to(equal(wantLogEntry.name))
             expect(gotLogEntry.timestamp).to(equal(wantLogEntry.timestamp))
-            print u'got timestamp', gotLogEntry.timestamp
-            print u'want timestamp', wantLogEntry.timestamp
             expect(gotLogEntry.severity).to(equal(wantLogEntry.severity))
-            gotStruct = encoding.MessageToPyValue(gotLogEntry.structPayload)
-            print u'got struct', gotStruct
-            wantStruct = encoding.MessageToPyValue(wantLogEntry.structPayload)
-            print u'want struct', wantStruct
+
+            gotStruct = sc_messages.LogEntry.to_dict(gotLogEntry).get("struct_payload")
+            wantStruct = sc_messages.LogEntry.to_dict(wantLogEntry).get("struct_payload")
             expect(gotStruct).to(equal(wantStruct))
 
     def test_should_add_expected_metric_as_report_request(self):
@@ -358,11 +359,8 @@ class TestInfo(unittest2.TestCase):
         ])
         for info, want in _ADD_METRICS_TESTS:
             got = info.as_report_request(rules, timer=timer)
-            # These additional properties have no well-defined order, so sort them.
-            got.reportRequest.operations[0].labels.additionalProperties.sort(key=KEYGETTER)
-            want.labels.additionalProperties.sort(key=KEYGETTER)
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
-            expect(got.reportRequest.operations[0]).to(equal(want))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
+            expect(got.operations[0]).to(equal(want))
 
     def test_should_add_expected_label_as_report_request(self):
         timer = _DateTimeTimer()
@@ -371,14 +369,11 @@ class TestInfo(unittest2.TestCase):
         ])
         for info, want in _ADD_LABELS_TESTS:
             got = info.as_report_request(rules, timer=timer)
-            # These additional properties have no well-defined order, so sort them.
-            got.reportRequest.operations[0].labels.additionalProperties.sort(key=KEYGETTER)
-            want.labels.additionalProperties.sort(key=KEYGETTER)
-            expect(got.serviceName).to(equal(_TEST_SERVICE_NAME))
-            expect(got.reportRequest.operations[0]).to(equal(want))
+            expect(got.service_name).to(equal(_TEST_SERVICE_NAME))
+            expect(got.operations[0]).to(equal(want))
 
 
-class TestAggregatorReport(unittest2.TestCase):
+class TestAggregatorReport(unittest.TestCase):
     SERVICE_NAME = u'service.report'
 
     def setUp(self):
@@ -397,14 +392,8 @@ class TestAggregatorReport(unittest2.TestCase):
         testf = lambda: self.agg.report(req)
         expect(testf).to(raise_error(ValueError))
 
-    def test_should_fail_if_check_request_is_missing(self):
-        req = sc_messages.ServicecontrolServicesReportRequest(
-            serviceName=self.SERVICE_NAME)
-        testf = lambda: self.agg.report(req)
-        expect(testf).to(raise_error(ValueError))
 
-
-class TestAggregatorTheCannotCache(unittest2.TestCase):
+class TestAggregatorTheCannotCache(unittest.TestCase):
     SERVICE_NAME = u'service.no_cache'
 
     def setUp(self):
@@ -424,7 +413,7 @@ class TestAggregatorTheCannotCache(unittest2.TestCase):
         expect(self.agg.flush_interval).to(be_none)
 
 
-class TestCachingAggregator(unittest2.TestCase):
+class TestCachingAggregator(unittest.TestCase):
     SERVICE_NAME = u'service.with_cache'
 
     def setUp(self):
@@ -440,7 +429,7 @@ class TestCachingAggregator(unittest2.TestCase):
     def test_should_not_cache_requests_with_important_operations(self):
         req = _make_test_request(
             self.SERVICE_NAME,
-            importance=sc_messages.Operation.ImportanceValueValuesEnum.HIGH)
+            importance=sc_messages.Operation.Importance.HIGH)
         agg = self.agg
         expect(agg.report(req)).to(be_none)
 
@@ -464,7 +453,7 @@ class TestCachingAggregator(unittest2.TestCase):
         self.timer.tick() # ... and is now past the flush_interval
         flushed_reqs = agg.flush()
         expect(len(flushed_reqs)).to(equal(1))
-        flushed_ops = flushed_reqs[0].reportRequest.operations
+        flushed_ops = flushed_reqs[0].operations
         expect(len(flushed_ops)).to(equal(4)) # number of ops in the req{1,2}
 
     def test_should_aggregate_operations_in_requests(self):
@@ -481,7 +470,7 @@ class TestCachingAggregator(unittest2.TestCase):
         self.timer.tick() # ... and is now past the flush_interval
         flushed_reqs = agg.flush()
         expect(len(flushed_reqs)).to(equal(1))
-        flushed_ops = flushed_reqs[0].reportRequest.operations
+        flushed_ops = flushed_reqs[0].operations
         expect(len(flushed_ops)).to(equal(2)) # many requests, but only two ops
 
     def test_may_clear_aggregated_operations(self):
@@ -521,16 +510,11 @@ def _make_op_names(n, start=0):
 
 def _make_test_request(service_name, importance=None, n=3, start=0):
     if importance is None:
-        importance = sc_messages.Operation.ImportanceValueValuesEnum.LOW
+        importance = sc_messages.Operation.Importance.LOW
     op_names = _make_op_names(n, start=start)
-    ops = [sc_messages.Operation(consumerId=_TEST_CONSUMER_ID,
-                              operationName=op_name,
+    ops = [sc_messages.Operation(consumer_id=_TEST_CONSUMER_ID,
+                              operation_name=op_name,
                               importance=importance) for op_name in op_names]
     if ops:
-        ops[0].labels = encoding.PyValueToMessage(
-            sc_messages.Operation.LabelsValue, {
-                u'key1': u'always add a label to the first op'})
-    report_request = sc_messages.ReportRequest(operations=ops)
-    return sc_messages.ServicecontrolServicesReportRequest(
-        serviceName=service_name,
-        reportRequest=report_request)
+        ops[0].labels = {u'key1': u'always add a label to the first op'}
+    return sc_messages.ReportRequest(service_name=service_name, operations=ops)

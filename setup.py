@@ -31,16 +31,16 @@ with open('endpoints_management/__init__.py', 'r') as f:
 
 install_requires = [
     'backoff>=1.6.0',
-    'cachetools>=1.0.0,<3',
-    "dogpile.cache>=0.6.1,<0.7",
-    'enum34>=1.1.6,<2',
-    'google-apitools>=0.5.21,<0.6',
+    'cachetools>=1.0.0',
+    "dogpile.cache>=0.6.1",
+    'enum34>=1.1.6',
+    'google-apitools>=0.5.21',
     'oauth2client==3.0.0',
-    "pylru>=1.0.9,<2.0",
-    "pyjwkest>=1.0.0,<=1.0.9",
-    "requests>=2.10.0,<3.0",
-    'strict-rfc3339>=0.7,<0.8',
-    'urllib3>=1.16,<2.0',
+    "pylru>=1.0.9",
+    "pyjwkest>=1.0.0",
+    "requests>=2.10.0",
+    'strict-rfc3339>=0.7',
+    'urllib3>=1.16',
     'webob>=1.7.4',
 ]
 

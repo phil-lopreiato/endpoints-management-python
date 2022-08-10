@@ -16,13 +16,13 @@ from __future__ import absolute_import
 
 import hashlib
 
-import unittest2
+import unittest
 from expects import equal, expect
 
 from endpoints_management.control import signing
 
 
-class TestAddDictToHash(unittest2.TestCase):
+class TestAddDictToHash(unittest.TestCase):
     NOTHING_ADDED = hashlib.md5().digest()
 
     def test_should_add_nothing_when_dict_is_none(self):

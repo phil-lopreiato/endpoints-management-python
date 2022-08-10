@@ -24,6 +24,7 @@ standard python datetime types, or an rfc3339 string representation
 
 from __future__ import absolute_import
 
+from past.builtins import basestring
 import datetime
 import logging
 
@@ -64,6 +65,9 @@ def compare(a, b):
     if a_is_text:
         a = from_rfc3339(a, with_nanos=True)
         b = from_rfc3339(b, with_nanos=True)
+
+    if a is None and b is None:
+        return 0
 
     if a < b:
         return -1

@@ -16,6 +16,8 @@
 
 from __future__ import absolute_import
 
+from past.builtins import basestring
+from builtins import object
 import datetime
 import jwkest
 import time
@@ -26,7 +28,7 @@ from jwkest import jwt
 
 from . import suppliers
 
-INT_TYPES = (int, long)
+INT_TYPES = (int, int)
 
 
 class Authenticator(object):  # pylint: disable=too-few-public-methods

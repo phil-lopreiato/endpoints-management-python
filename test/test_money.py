@@ -15,24 +15,25 @@
 from __future__ import absolute_import
 
 import sys
-import unittest2
+import unittest
 from expects import expect, equal, raise_error
+from google.type import money_pb2
 
-from endpoints_management.control import money, sc_messages
+from endpoints_management.control import money
 
 
-class TestCheckValid(unittest2.TestCase):
-    _BAD_CURRENCY = sc_messages.Money(currencyCode=u'this-is-bad')
+class TestCheckValid(unittest.TestCase):
+    _BAD_CURRENCY = money_pb2.Money(currency_code=u'this-is-bad')
     _MISMATCHED_UNITS = (
-        sc_messages.Money(currencyCode=u'JPY', units=-1, nanos=1),
-        sc_messages.Money(currencyCode=u'JPY', units=1, nanos=-1),
+        money_pb2.Money(currency_code=u'JPY', units=-1, nanos=1),
+        money_pb2.Money(currency_code=u'JPY', units=1, nanos=-1),
     )
-    _NANOS_OOB = sc_messages.Money(
-        currencyCode=u'EUR', units=0, nanos=9999999999)
+    _NANOS_OOB = money_pb2.Money(
+        currency_code=u'EUR', units=0, nanos=1000000000)
     _OK = (
-        sc_messages.Money(currencyCode=u'JPY', units=1, nanos=1),
-        sc_messages.Money(currencyCode=u'JPY', units=-1, nanos=-1),
-        sc_messages.Money(currencyCode=u'EUR', units=0, nanos=money.MAX_NANOS),
+        money_pb2.Money(currency_code=u'JPY', units=1, nanos=1),
+        money_pb2.Money(currency_code=u'JPY', units=-1, nanos=-1),
+        money_pb2.Money(currency_code=u'EUR', units=0, nanos=money.MAX_NANOS),
     )
 
     def test_should_fail_if_not_really_money(self):
@@ -40,7 +41,7 @@ class TestCheckValid(unittest2.TestCase):
         expect(lambda: money.check_valid(None)).to(raise_error(ValueError))
 
     def test_should_fail_when_no_currency_is_set(self):
-        expect(lambda: money.check_valid(sc_messages.Money())).to(
+        expect(lambda: money.check_valid(money_pb2.Money())).to(
             raise_error(ValueError))
 
     def test_should_fail_when_the_currency_is_bad(self):
@@ -60,17 +61,17 @@ class TestCheckValid(unittest2.TestCase):
             money.check_valid(m)
 
 
-class TestAdd(unittest2.TestCase):
-    _SOME_YEN = sc_messages.Money(currencyCode=u'JPY', units=3, nanos=0)
-    _SOME_YEN_DEBT = sc_messages.Money(currencyCode=u'JPY', units=-2, nanos=-1)
-    _SOME_MORE_YEN = sc_messages.Money(currencyCode=u'JPY', units=1, nanos=3)
-    _SOME_USD = sc_messages.Money(currencyCode=u'USD', units=1, nanos=0)
-    _INT64_MAX = sys.maxint
-    _INT64_MIN = -sys.maxint - 1
-    _LARGE_YEN = sc_messages.Money(
-        currencyCode=u'JPY', units=_INT64_MAX -1, nanos=0)
-    _LARGE_YEN_DEBT = sc_messages.Money(
-        currencyCode=u'JPY', units=-_INT64_MAX + 1, nanos=0)
+class TestAdd(unittest.TestCase):
+    _SOME_YEN = money_pb2.Money(currency_code=u'JPY', units=3, nanos=0)
+    _SOME_YEN_DEBT = money_pb2.Money(currency_code=u'JPY', units=-2, nanos=-1)
+    _SOME_MORE_YEN = money_pb2.Money(currency_code=u'JPY', units=1, nanos=3)
+    _SOME_USD = money_pb2.Money(currency_code=u'USD', units=1, nanos=0)
+    _INT64_MAX = sys.maxsize
+    _INT64_MIN = -sys.maxsize - 1
+    _LARGE_YEN = money_pb2.Money(
+        currency_code=u'JPY', units=_INT64_MAX -1, nanos=0)
+    _LARGE_YEN_DEBT = money_pb2.Money(
+        currency_code=u'JPY', units=-_INT64_MAX + 1, nanos=0)
 
     def test_should_fail_if_non_money_is_used(self):
         testfs = [

@@ -13,19 +13,19 @@
 # limitations under the License.
 
 import copy
-import mock
 import json
 import time
 import unittest
+from unittest import mock
 
-from Crypto import PublicKey
+from Cryptodome import PublicKey
 from jwkest import ecc
 from jwkest import jwk
 from jwkest import jws
-from test import token_utils
 
 from endpoints_management.auth import suppliers
 from endpoints_management.auth import tokens
+from test import token_utils
 
 
 class AuthenticatorTest(unittest.TestCase):
@@ -212,7 +212,7 @@ class AuthenticatorTest(unittest.TestCase):
         assert_malformed_time_claim_raises_exception(u"nbf", [1])
 
     def test_authenticate_with_expired_auth_token(self):
-        self._jwt_claims[u"exp"] = long(time.time() - 10)
+        self._jwt_claims[u"exp"] = int(time.time() - 10)
         auth_token = token_utils.generate_auth_token(self._jwt_claims,
                                                      self._jwks._keys)
         message = u"The auth token has already expired"
@@ -223,7 +223,7 @@ class AuthenticatorTest(unittest.TestCase):
 
     def test_authenticate_with_nbf_claim(self):
         # Set the "nbf" claim to some time in the future.
-        self._jwt_claims[u"nbf"] = long(time.time() + 5)
+        self._jwt_claims[u"nbf"] = int(time.time() + 5)
         auth_token = token_utils.generate_auth_token(self._jwt_claims,
                                                      self._jwks._keys)
         message = u'Current time is less than the "nbf" time'

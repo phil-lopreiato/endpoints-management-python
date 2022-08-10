@@ -24,12 +24,12 @@ from __future__ import absolute_import
 import logging
 import sys
 
-from . import sc_messages
+from google.type import money_pb2
 
 _logger = logging.getLogger(__name__)
 
-_INT64_MAX = sys.maxint
-_INT64_MIN = -sys.maxint - 1
+_INT64_MAX = sys.maxsize
+_INT64_MIN = -sys.maxsize - 1
 _BILLION = 1000000000
 MAX_NANOS = _BILLION - 1
 _MSG_3_LETTERS_LONG = u'The currency code is not 3 letters long'
@@ -47,9 +47,9 @@ def check_valid(money):
     Raises:
       ValueError: if the money instance is invalid
     """
-    if not isinstance(money, sc_messages.Money):
-        raise ValueError(u'Inputs should be of type %s' % (sc_messages.Money,))
-    currency = money.currencyCode
+    if not isinstance(money, money_pb2.Money):
+        raise ValueError(u'Inputs should be of type %s' % (money_pb2.Money,))
+    currency = money.currency_code
     if not currency or len(currency) != 3:
         raise ValueError(_MSG_3_LETTERS_LONG)
     units = money.units
@@ -78,9 +78,9 @@ def add(a, b, allow_overflow=False):
       OverflowError: if the sum overflows and allow_overflow is not `True`
     """
     for m in (a, b):
-        if not isinstance(m, sc_messages.Money):
-            raise ValueError(u'Inputs should be of type %s' % (sc_messages.Money,))
-    if a.currencyCode != b.currencyCode:
+        if not isinstance(m, money_pb2.Money):
+            raise ValueError(u'Inputs should be of type %s' % (money_pb2.Money,))
+    if a.currency_code != b.currency_code:
         raise ValueError(u'Money values need the same currency to be summed')
     nano_carry, nanos_sum = _sum_nanos(a, b)
     units_sum_no_carry = a.units + b.units
@@ -101,21 +101,21 @@ def add(a, b, allow_overflow=False):
         if not allow_overflow:
             raise OverflowError(u'Money addition positive overflow')
         else:
-            return sc_messages.Money(units=_INT64_MAX,
+            return money_pb2.Money(units=_INT64_MAX,
                                      nanos=MAX_NANOS,
-                                     currencyCode=a.currencyCode)
+                                     currency_code=a.currency_code)
     elif (sign_a < 0 and sign_b < 0 and
           (units_sum_no_carry <= -_INT64_MAX or units_sum <= -_INT64_MAX)):
         if not allow_overflow:
             raise OverflowError(u'Money addition negative overflow')
         else:
-            return sc_messages.Money(units=_INT64_MIN,
+            return money_pb2.Money(units=_INT64_MIN,
                                      nanos=-MAX_NANOS,
-                                     currencyCode=a.currencyCode)
+                                     currency_code=a.currency_code)
     else:
-        return sc_messages.Money(units=units_sum,
+        return money_pb2.Money(units=units_sum,
                                  nanos=nanos_sum,
-                                 currencyCode=a.currencyCode)
+                                 currency_code=a.currency_code)
 
 
 def _sum_nanos(a, b):

@@ -14,14 +14,14 @@
 
 import copy
 import flask
-import mock
 import os
 import ssl
 import threading
 import time
 import unittest
+from unittest import mock
 
-from Crypto import PublicKey
+from Cryptodome import PublicKey
 from jwkest import ecc
 from jwkest import jwk
 from test import token_utils

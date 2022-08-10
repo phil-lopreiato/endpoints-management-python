@@ -25,10 +25,10 @@ from __future__ import absolute_import
 import hashlib
 import logging
 
-from apitools.base.py import encoding
+from google.cloud.servicecontrol import MetricValue
+from google.protobuf.json_format import ParseDict, MessageToDict
 
 from . import distribution, money, signing, timestamp, MetricKind
-from ..gen.servicecontrol_v1_messages import MetricValue
 
 
 _logger = logging.getLogger(__name__)
@@ -51,8 +51,7 @@ def create(labels=None, **kw):
 
     """
     if labels is not None:
-        kw[u'labels'] = encoding.PyValueToMessage(MetricValue.LabelsValue,
-                                                  labels)
+        kw[u'labels'] = labels
     return MetricValue(**kw)
 
 
@@ -91,11 +90,14 @@ def update_hash(a_hash, mv):
 
     """
     if mv.labels:
-        signing.add_dict_to_hash(a_hash, encoding.MessageToPyValue(mv.labels))
-    money_value = mv.get_assigned_value(u'moneyValue')
-    if money_value is not None:
+        sorted_labels = {k: mv.labels[k] for k in sorted(mv.labels)}
+        signing.add_dict_to_hash(a_hash, sorted_labels)
+    """
+    money_value doesn't exist
+    money_value = mv.money_value
         a_hash.update(b'\x00')
         a_hash.update(money_value.currencyCode.encode('utf-8'))
+    """
 
 
 def sign(mv):
@@ -114,7 +116,7 @@ def sign(mv):
 
 
 def _merge_cumulative_or_gauge_metrics(prior, latest):
-    if timestamp.compare(prior.endTime, latest.endTime) == -1:
+    if timestamp.compare(prior.end_time, latest.end_time) == -1:
         return latest
     else:
         return prior
@@ -133,41 +135,43 @@ def _merge_delta_metric(prior, latest):
 # field in google/api/servicecontrol/v1/metric_value.proto, and should be kept
 # in sync with that
 _METRIC_VALUE_ONEOF_FIELDS = (
-    u'boolValue', u'distributionValue', u'doubleValue', u'int64Value',
-    u'moneyValue', u'stringValue')
+    u'bool_value', u'distribution_value', u'double_value', u'int64_value',
+    # money_value doesn't exist anymore
+    # u'money_value', 
+    u'string_value')
 
 
 def _detect_value(metric_value):
     for f in _METRIC_VALUE_ONEOF_FIELDS:
-        value = metric_value.get_assigned_value(f)
-        if value is not None:
+        value = getattr(metric_value, f)
+        if value:
             return f, value
     return None, None
 
 
 def _merge_delta_timestamps(prior, latest):
     # Update the start time and end time in the latest metric value
-    if (prior.startTime and
-        (latest.startTime is None or
-         timestamp.compare(prior.startTime, latest.startTime) == -1)):
-        latest.startTime = prior.startTime
+    if (prior.start_time and
+        (latest.start_time is None or
+         timestamp.compare(prior.start_time, latest.start_time) == -1)):
+        latest.start_time = prior.start_time
 
-    if (prior.endTime and
-        (latest.endTime is None or timestamp.compare(
-            latest.endTime, prior.endTime) == -1)):
-        latest.endTime = prior.endTime
+    if (prior.end_time and
+        (latest.end_time is None or timestamp.compare(
+            latest.end_time, prior.end_time) == -1)):
+        latest.end_time = prior.end_time
 
     return latest
 
 
 def _combine_delta_values(value_type, prior, latest):
-    if value_type in (u'int64Value', u'doubleValue'):
+    if value_type in (u'int64_value', u'double_value'):
         return prior + latest
-    elif value_type == u'moneyValue':
+    elif value_type == u'money_value':
         return money.add(prior, latest, allow_overflow=True)
-    elif value_type == u'distributionValue':
+    elif value_type == u'distribution_value':
         distribution.merge(prior, latest)
         return latest
     else:
         _logger.error(u'Unmergeable metric type %s', value_type)
-        raise ValueError(u'Could not merge unmergeable metric type')
+        raise ValueError(u'Could not merge unmergeable metric type %s' % value_type)

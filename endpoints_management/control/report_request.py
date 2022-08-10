@@ -22,6 +22,8 @@ ReportRequests.
 
 from __future__ import absolute_import
 
+from builtins import range
+from builtins import object
 import collections
 import functools
 import hashlib
@@ -29,9 +31,13 @@ import logging
 import time
 from datetime import datetime, timedelta
 
-from apitools.base.py import encoding
+from google.cloud import servicecontrol as sc_messages
+from google.logging.type import log_severity_pb2 as log_severity
+from google.protobuf import struct_pb2, timestamp_pb2
+from google.protobuf.json_format import ParseDict
+
 from enum import Enum
-from . import caches, label_descriptor, operation, sc_messages
+from . import caches, label_descriptor, operation
 from . import metric_descriptor, signing, timestamp
 from .. import USER_AGENT, SERVICE_AGENT
 
@@ -103,10 +109,10 @@ class ReportingRules(collections.namedtuple(u'ReportingRules',
         known_metrics = []
         # pylint: disable=no-member
         # pylint is not aware of the __members__ attributes
-        for l in label_descriptor.KnownLabels.__members__.values():
+        for l in list(label_descriptor.KnownLabels.__members__.values()):
             if l.update_label_func and l.label_name in label_names:
                 known_labels.append(l)
-        for m in metric_descriptor.KnownMetrics.__members__.values():
+        for m in list(metric_descriptor.KnownMetrics.__members__.values()):
             if m.update_op_func and m.metric_name in metric_names:
                 known_metrics.append(m)
         return cls(logs=logs, metrics=known_metrics, labels=known_labels)
@@ -154,12 +160,12 @@ class ErrorCause(Enum):
 
 
 # alias the severity enum
-_SEVERITY = sc_messages.LogEntry.SeverityValueValuesEnum
+_SEVERITY = log_severity.LogSeverity
 
 
 def _struct_payload_from(a_dict):
-    return encoding.PyValueToMessage(
-        sc_messages.LogEntry.StructPayloadValue, a_dict)
+    struct_pb = struct_pb2.Struct()
+    return ParseDict(a_dict, struct_pb)
 
 
 _KNOWN_LABELS = label_descriptor.KnownLabels
@@ -337,9 +343,9 @@ class Info(
 
         return sc_messages.LogEntry(
             name=name,
-            timestamp=timestamp.to_rfc3339(now),
+            timestamp=timestamp_pb2.Timestamp().FromJsonString(timestamp.to_rfc3339(now)),
             severity=severity,
-            structPayload=_struct_payload_from(d))
+            struct_payload=_struct_payload_from(d))
 
     def as_report_request(self, rules, timer=datetime.utcnow):
         """Makes a `ServicecontrolServicesReportRequest` from this instance
@@ -364,7 +370,7 @@ class Info(
 
         # Populate metrics and labels if they can be associated with a
         # method/operation
-        if op.operationId and op.operationName:
+        if op.operation_id and op.operation_name:
             labels = {}
             for known_label in rules.labels:
                 known_label.do_labels_update(self, labels)
@@ -378,19 +384,17 @@ class Info(
             labels[_KNOWN_LABELS.SCC_USER_AGENT.label_name] = USER_AGENT
 
             if labels:
-                op.labels = encoding.PyValueToMessage(
-                    sc_messages.Operation.LabelsValue,
-                    labels)
+                op.labels = labels
             for known_metric in rules.metrics:
                 known_metric.do_operation_update(self, op)
 
         # Populate the log entries
         now = timer()
-        op.logEntries = [self._as_log_entry(l, now) for l in rules.logs]
+        op.log_entries = [self._as_log_entry(l, now) for l in rules.logs]
 
-        return sc_messages.ServicecontrolServicesReportRequest(
-            serviceName=self.service_name,
-            reportRequest=sc_messages.ReportRequest(operations=[op]))
+        return sc_messages.ReportRequest(
+            service_name=self.service_name,
+            operations=[op])
 
 
 _NO_RESULTS = tuple()
@@ -466,11 +470,9 @@ class Aggregator(object):
             max_ops = self.MAX_OPERATION_COUNT
             for x in range(0, len(flushed_ops), max_ops):
                 report_request = sc_messages.ReportRequest(
+                    service_name=self.service_name,
                     operations=flushed_ops[x:x + max_ops])
-                reqs.append(
-                    sc_messages.ServicecontrolServicesReportRequest(
-                        serviceName=self.service_name,
-                        reportRequest=report_request))
+                reqs.append(report_request)
 
             return reqs
 
@@ -480,7 +482,7 @@ class Aggregator(object):
             return _NO_RESULTS
         if self._cache is not None:
             with self._cache as k:
-                res = [x.as_operation() for x in k.values()]
+                res = [x.as_operation() for x in list(k.values())]
                 k.clear()
                 k.out_deque.clear()
                 return res
@@ -501,14 +503,14 @@ class Aggregator(object):
         """
         if self._cache is None:
             return None  # no cache, send request now
-        if not isinstance(req, sc_messages.ServicecontrolServicesReportRequest):
+        if not isinstance(req, sc_messages.ReportRequest):
             raise ValueError(u'Invalid request')
-        if req.serviceName != self.service_name:
+        if req.service_name != self.service_name:
             _logger.error(u'bad report(): service_name %s does not match ours %s',
-                          req.serviceName, self.service_name)
+                          req.service_name, self.service_name)
             raise ValueError(u'Service name mismatch')
-        report_req = req.reportRequest
-        if report_req is None:
+        report_req = req
+        if not report_req:
             _logger.error(u'bad report(): no report_request in %s', req)
             raise ValueError(u'Expected report_request not set')
         if _has_high_important_operation(report_req) or self._cache is None:
@@ -521,7 +523,7 @@ class Aggregator(object):
         # This holds a lock on the cache while updating it.  No i/o operations
         # are performed, so any waiting threads see minimal delays
         with self._cache as cache:
-            for key, op in ops_by_signature.items():
+            for key, op in list(ops_by_signature.items()):
                 agg = cache.get(key)
                 if agg is None:
                     cache[key] = operation.Aggregator(op, self._kinds)
@@ -534,7 +536,7 @@ class Aggregator(object):
 def _has_high_important_operation(req):
     def is_important(op):
         return (op.importance !=
-                sc_messages.Operation.ImportanceValueValuesEnum.LOW)
+                sc_messages.Operation.Importance.LOW)
 
     return functools.reduce(lambda x, y: x and is_important(y),
                             req.operations, True)
@@ -563,9 +565,10 @@ def _sign_operation(op):
        string: a unique signature for that operation
     """
     md5 = hashlib.md5()
-    md5.update(op.consumerId.encode('utf-8'))
+    md5.update(op.consumer_id.encode('utf-8'))
     md5.update(b'\x00')
-    md5.update(op.operationName.encode('utf-8'))
+    md5.update(op.operation_name.encode('utf-8'))
     if op.labels:
-        signing.add_dict_to_hash(md5, encoding.MessageToPyValue(op.labels))
+        sorted_labels = {k: op.labels[k] for k in sorted(op.labels)}
+        signing.add_dict_to_hash(md5, sorted_labels)
     return md5.digest()

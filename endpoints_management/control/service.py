@@ -28,17 +28,21 @@ tracked.
 
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import object
 import collections
 import logging
 import os
-import urllib
+import urllib.request, urllib.parse, urllib.error
 
 
-from apitools.base.py import encoding
 from enum import Enum
+from google.api import service_pb2
+from google.protobuf.json_format import Parse, ParseDict, ParseError, MessageToDict
 
 from ..config import service_config
-from . import label_descriptor, metric_descriptor, path_regex, sm_messages
+from . import label_descriptor, metric_descriptor, path_regex
 
 
 _logger = logging.getLogger(__name__)
@@ -57,8 +61,8 @@ def _load_from_well_known_env():
         return None
     try:
         with open(config_file) as f:
-            return encoding.JsonToMessage(sm_messages.Service, f.read())
-    except ValueError:
+            return Parse(f.read(), service_pb2.Service())
+    except ParseError:
         _logger.warn(u'did not load service; bad json config file %s', config_file)
         return None
 
@@ -81,22 +85,22 @@ _SIMPLE_CONFIG = """
     "usage": {
         "rules": [{
             "selector" : "allow-all.GET",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }, {
             "selector" : "allow-all.PATCH",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }, {
             "selector" : "allow-all.POST",
-            "allowUnregisteredCalls" : true
+            "allow_unregistered_calls" : true
         }]
     }
 }
 """
-_SIMPLE_CORE = encoding.JsonToMessage(sm_messages.Service, _SIMPLE_CONFIG)
+_SIMPLE_CORE = Parse(_SIMPLE_CONFIG, service_pb2.Service())
 
 
 def _load_simple():
-    return encoding.CopyProtoMessage(_SIMPLE_CORE)
+    return ParseDict(MessageToDict(_SIMPLE_CORE), service_pb2.Service())
 
 
 class Loaders(Enum):
@@ -134,7 +138,7 @@ class MethodRegistry(object):
           service (:class:`endpoints_management.gen.servicemanagement_v1_messages.Service`):
             a service instance
         """
-        if not isinstance(service, sm_messages.Service):
+        if not isinstance(service, service_pb2.Service):
             raise ValueError(u'service should be an instance of Service')
         if not service.name:
             raise ValueError(u'Bad service: the name is missing')
@@ -157,7 +161,7 @@ class MethodRegistry(object):
         if not tmi:
             _logger.debug(u'No methods for http method %s in %s',
                           http_method,
-                          self._templates_method_infos.keys())
+                          list(self._templates_method_infos.keys()))
             return None
         # need to remove url quoting of colons. this is the simplest way.
         path = path.replace('%3A', ':')
@@ -189,7 +193,7 @@ class MethodRegistry(object):
             selector = auth_rule.selector
             provider_ids_to_audiences = {}
             for requirement in auth_rule.requirements:
-                provider_id = requirement.providerId
+                provider_id = requirement.provider_id
                 if provider_id and requirement.audiences:
                     audiences = requirement.audiences.split(u",")
                     provider_ids_to_audiences[provider_id] = audiences
@@ -202,9 +206,9 @@ class MethodRegistry(object):
             return {}
 
         quota_infos = {}
-        for metric_rule in service.quota.metricRules:
+        for metric_rule in service.quota.metric_rules:
             selector = metric_rule.selector
-            costs = {ap.key: ap.value for ap in metric_rule.metricCosts.additionalProperties}
+            costs = metric_rule.metric_costs
             quota_infos[selector] = costs
 
         return quota_infos
@@ -248,8 +252,9 @@ class MethodRegistry(object):
                           template.pattern,
                           http_method)
             return True
-        except path_regex.RegexError:
+        except path_regex.RegexError as ex:
             _logger.error(u'invalid HTTP template provided: %s', url)
+            print(f"{ex}")
             return False
 
     def _update_usage(self):
@@ -261,7 +266,7 @@ class MethodRegistry(object):
             selector = rule.selector
             method = extracted_methods.get(selector)
             if method:
-                method.allow_unregistered_calls = rule.allowUnregisteredCalls
+                method.allow_unregistered_calls = rule.allow_unregistered_calls
             else:
                 _logger.error(u'bad usage selector: No HTTP rule for %s', selector)
 
@@ -298,9 +303,9 @@ class MethodRegistry(object):
     def _update_system_parameters(self):
         extracted_methods = self._extracted_methods
         service = self._service
-        if not service.systemParameters:
+        if not service.system_parameters:
             return
-        rules = service.systemParameters.rules
+        rules = service.system_parameters.rules
         for rule in rules:
             selector = rule.selector
             method = extracted_methods.get(selector)
@@ -316,10 +321,10 @@ class MethodRegistry(object):
                                   selector)
                     continue
 
-                if parameter.httpHeader:
-                    method.add_header_param(name, parameter.httpHeader)
-                if parameter.urlQueryParameter:
-                    method.add_url_query_param(name, parameter.urlQueryParameter)
+                if parameter.http_header:
+                    method.add_header_param(name, parameter.http_header)
+                if parameter.url_query_parameter:
+                    method.add_url_query_param(name, parameter.url_query_parameter)
 
 
 class AuthInfo(object):
@@ -400,12 +405,12 @@ def extract_report_spec(
          labels (list[string]) # the labels to add
        )
     """
-    resource_descs = service.monitoredResources
+    resource_descs = service.monitored_resources
     labels_dict = {}
     logs = set()
     if service.logging:
         logs = _add_logging_destinations(
-            service.logging.producerDestinations,
+            service.logging.producer_destinations,
             resource_descs,
             service.logs,
             labels_dict,
@@ -414,8 +419,8 @@ def extract_report_spec(
     metrics_dict = {}
     monitoring = service.monitoring
     if monitoring:
-        for destinations in (monitoring.consumerDestinations,
-                             monitoring.producerDestinations):
+        for destinations in (monitoring.consumer_destinations,
+                             monitoring.producer_destinations):
             _add_monitoring_destinations(destinations,
                                          resource_descs,
                                          service.metrics,
@@ -423,7 +428,7 @@ def extract_report_spec(
                                          metric_is_supported,
                                          labels_dict,
                                          label_is_supported)
-    return logs, metrics_dict.keys(), labels_dict.keys()
+    return logs, list(metrics_dict.keys()), list(labels_dict.keys())
 
 
 def _add_logging_destinations(destinations,
@@ -434,7 +439,7 @@ def _add_logging_destinations(destinations,
     all_logs = set()
     for d in destinations:
         if not _add_labels_for_a_monitored_resource(resource_descs,
-                                                    d.monitoredResource,
+                                                    d.monitored_resource,
                                                     labels_dict,
                                                     is_supported):
             continue  # skip bad monitored resources
@@ -454,7 +459,7 @@ def _add_monitoring_destinations(destinations,
     # pylint: disable=too-many-arguments
     for d in destinations:
         if not _add_labels_for_a_monitored_resource(resource_descs,
-                                                    d.monitoredResource,
+                                                    d.monitored_resource,
                                                     labels_dict,
                                                     label_is_supported):
             continue  # skip bad monitored resources
@@ -473,7 +478,7 @@ def _add_labels_from_descriptors(descs, labels_dict, is_supported):
     # only add labels if there are no conflicts
     for desc in descs:
         existing = labels_dict.get(desc.key)
-        if existing and existing.valueType != desc.valueType:
+        if existing and existing.value_type != desc.value_type:
             _logger.warn(u'halted label scan: conflicting label in %s', desc.key)
             return False
     # Update labels_dict
@@ -524,8 +529,8 @@ _HTTP_RULE_ONE_OF_FIELDS = (
 
 def _detect_pattern_option(http_rule):
     for f in _HTTP_RULE_ONE_OF_FIELDS:
-        value = http_rule.get_assigned_value(f)
-        if value is not None:
+        value = getattr(http_rule, f, None)
+        if value:
             if f == u'custom':
                 return value.kind, value.path
             else:
